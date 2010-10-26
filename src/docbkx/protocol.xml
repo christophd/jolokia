@@ -676,11 +676,13 @@ $input =~ s|-/$|+/|; # The last slash needs a special escape]]></programlisting>
           <varlistentry>
             <term><emphasis role="bold">setHistoryEntriesForOperation</emphasis></term>
             <listitem>              
+              <emphasis>(todo)</emphasis>
             </listitem>
           </varlistentry>
           <varlistentry>
             <term><emphasis role="bold">setHistoryEntriesForAttribute</emphasis></term>
             <listitem>              
+              <emphasis>(todo)</emphasis>
             </listitem>
           </varlistentry>
         </variablelist>

@@ -5,3 +5,6 @@ target
 *~
 
 /classes/
+.project
+.settings
+.classpath

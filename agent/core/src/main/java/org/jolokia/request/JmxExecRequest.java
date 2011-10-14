@@ -16,11 +16,11 @@
 
 package org.jolokia.request;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import javax.management.MalformedObjectNameException;
 
+import org.jolokia.converter.object.StringToObjectConverter;
 import org.jolokia.util.RequestType;
 import org.json.simple.JSONObject;
 
@@ -99,6 +99,45 @@ public class JmxExecRequest extends JmxObjectNameRequest {
         ret.put("operation", operation);
         return ret;
     }
+
+    // =================================================================================
+
+    /**
+     * Creator for {@link JmxExecRequest}s
+     *
+     * @return the creator implementation
+     */
+    static RequestCreator<JmxExecRequest> newCreator() {
+        return new RequestCreator<JmxExecRequest>() {
+            /** {@inheritDoc} */
+            public JmxExecRequest create(Stack<String> pStack, Map<String, String> pParams) throws MalformedObjectNameException {
+                return new JmxExecRequest(
+                        pStack.pop(), // Object name
+                        pStack.pop(), // Operation name
+                        convertSpecialStringTags(prepareExtraArgs(pStack)), // arguments
+                        pParams);
+            }
+
+            /** {@inheritDoc} */
+            public JmxExecRequest create(Map<String, ?> requestMap, Map<String, String> pParams)
+                    throws MalformedObjectNameException {
+                return new JmxExecRequest(requestMap,pParams);
+            }
+        };
+    }
+
+    // Conver string tags if required
+    private static List<String> convertSpecialStringTags(List<String> extraArgs) {
+        if (extraArgs == null) {
+            return null;
+        }
+        List<String> args = new ArrayList<String>();
+        for (String arg : extraArgs) {
+            args.add(StringToObjectConverter.convertSpecialStringTags(arg));
+        }
+        return args;
+    }
+
 
     @Override
     public String toString() {

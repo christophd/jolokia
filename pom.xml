@@ -3,7 +3,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>org.jolokia</groupId>
   <artifactId>jolokia</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.0.1-SNAPSHOT</version>
   <name>jolokia-parent</name>
   <description>jolokia parent pom</description>
 
@@ -23,7 +23,6 @@
       
       <plugin>
         <artifactId>maven-compiler-plugin</artifactId>
-        <version>2.3</version>
         <configuration>
           <source>1.5</source>
           <target>1.5</target>
@@ -31,7 +30,7 @@
           <maxmem>512m</maxmem>
         </configuration>
       </plugin>
-      
+
       <plugin>
         <artifactId>maven-assembly-plugin</artifactId>
         <configuration>
@@ -41,14 +40,12 @@
           </descriptors>
         </configuration>
       </plugin>
-      
+
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-release-plugin</artifactId>
-        <version>2.1</version>
         <configuration>
           <autoVersionSubmodules>true</autoVersionSubmodules>
-          <releaseProfiles>dist-labs</releaseProfiles>
           <goals>deploy docbkx:generate-html docbkx:generate-pdf package assembly:assembly</goals>
         </configuration>
       </plugin>
@@ -56,7 +53,6 @@
       <plugin>
         <groupId>com.agilejava.docbkx</groupId>
         <artifactId>docbkx-maven-plugin</artifactId>
-        <version>2.0.6</version>
         <executions>
           <execution>
             <goals>
@@ -112,9 +108,8 @@
       </plugin>
       
       <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>rat-maven-plugin</artifactId>
-        <version>1.0-alpha-3</version>
+        <groupId>org.apache.rat</groupId>
+        <artifactId>apache-rat-plugin</artifactId>
         <configuration>
           <includes>
             <include>**/*.java</include>
@@ -134,19 +129,58 @@
         <plugin>
           <groupId>org.apache.felix</groupId>
           <artifactId>maven-bundle-plugin</artifactId>
-          <version>2.0.1</version>
+          <version>2.3.5</version>
           <configuration>
             <groupId>${project.groupId}</groupId>
             <artifactId>${project.artifactId}</artifactId>
             <version>${project.version}</version>
             <packaging>${project.packaging}</packaging>
-            <remoteOBR>true</remoteOBR>
           </configuration>
         </plugin>
 
         <plugin>
-          <artifactId>maven-jar-plugin</artifactId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <version>2.3.2</version>
+        </plugin>
+
+        <plugin>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <version>2.2.1</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-release-plugin</artifactId>
+          <version>2.2.1</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
           <version>2.3</version>
+        </plugin>
+
+        <plugin>
+          <groupId>com.agilejava.docbkx</groupId>
+          <artifactId>docbkx-maven-plugin</artifactId>
+          <version>2.0.6</version>
+        </plugin>
+        
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-gpg-plugin</artifactId>
+          <version>1.1</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.felix</groupId>
+          <artifactId>maven-scr-plugin</artifactId>
+          <version>1.7.2</version>
+        </plugin>
+
+        <plugin>
+          <artifactId>maven-jar-plugin</artifactId>
+          <version>2.3.2</version>
           <configuration>
             <archive>
               <addMavenDescriptor>true</addMavenDescriptor>
@@ -156,42 +190,37 @@
         
         <plugin>
           <artifactId>maven-war-plugin</artifactId>
-          <version>2.1-beta-1</version>
-        </plugin>
-        
-        <plugin>
-          <artifactId>maven-assembly-plugin</artifactId>
-          <version>2.2-beta-5</version>
+          <version>2.1.1</version>
         </plugin>
 
         <plugin>
           <artifactId>maven-deploy-plugin</artifactId>
-          <version>2.5</version>
+          <version>2.7</version>
         </plugin>
         
         <plugin>
           <artifactId>maven-surefire-plugin</artifactId>
-          <version>2.5</version>
+          <version>2.9</version>
         </plugin>
 
         <plugin>
           <artifactId>maven-resources-plugin</artifactId>
-          <version>2.4.2</version>
+          <version>2.5</version>
         </plugin>
         
         <plugin>
           <artifactId>maven-install-plugin</artifactId>
-          <version>2.3</version>
+          <version>2.3.1</version>
         </plugin>
         
         <plugin>
           <artifactId>maven-antrun-plugin</artifactId>
-          <version>1.3</version>
+          <version>1.6</version>
         </plugin>
 
         <plugin>
           <artifactId>maven-site-plugin</artifactId>
-          <version>2.2</version>
+          <version>3.0</version>
           <configuration>
             <validate>false</validate>
           </configuration>
@@ -206,7 +235,13 @@
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-source-plugin</artifactId>
-          <version>2.1.1</version>
+          <version>2.1.2</version>
+        </plugin>
+
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-javadoc-plugin</artifactId>
+          <version>2.8</version>
         </plugin>
 
         <plugin>
@@ -222,7 +257,7 @@
       <extension>
         <groupId>org.apache.maven.wagon</groupId>
         <artifactId>wagon-ssh-external</artifactId>
-        <version>1.0-beta-6</version>
+        <version>1.0</version>
       </extension>
     </extensions>
   </build>
@@ -251,7 +286,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-changes-plugin</artifactId>
-        <version>2.3</version>
+        <version>2.6</version>
         <reportSets>
           <reportSet>
             <reports>
@@ -274,7 +309,7 @@
     <connection>scm:git:git://github.com/rhuss/jolokia.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/rhuss/jolokia.git</developerConnection>
     <tag>HEAD</tag>
-    <url>http://github.com/rhuss/jolokia</url>
+    <url>git://github.com/rhuss/jolokia.git</url>
   </scm>
   
   <ciManagement>
@@ -320,11 +355,24 @@
         <version>1.1</version>
       </dependency>
 
-
+      <dependency>
+        <groupId>org.osgi</groupId>
+        <artifactId>org.osgi.core</artifactId>
+        <version>4.2.0</version>
+        <scope>provided</scope>
+      </dependency>
+      
+      <dependency>
+        <groupId>org.osgi</groupId>
+        <artifactId>org.osgi.compendium</artifactId>
+        <version>4.2.0</version>
+        <scope>provided</scope>
+      </dependency>
+      
       <dependency>
         <groupId>org.testng</groupId>
         <artifactId>testng</artifactId>
-        <version>5.12.1</version>
+        <version>6.1.1</version>
         <scope>test</scope>
       </dependency>
 
@@ -338,7 +386,7 @@
       <dependency>
         <groupId>org.mortbay.jetty</groupId>
         <artifactId>jetty</artifactId>
-        <version>6.1.22</version>
+        <version>6.1.26</version>
         <scope>test</scope>
       </dependency>
 
@@ -354,65 +402,47 @@
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <currentStableVersion>0.95</currentStableVersion>
-    <currentSnapshotVersion>1.0.0-SNAPSHOT</currentSnapshotVersion>
+    <currentStableVersion>1.0.0</currentStableVersion>
+    <currentSnapshotVersion>1.0.1-SNAPSHOT</currentSnapshotVersion>
     <sonar.host.url>http://labs.consol.de/sonar</sonar.host.url>
     <sonar.core.codeCoveragePlugin>jacoco</sonar.core.codeCoveragePlugin>
   </properties>
 
-  
   <repositories>
     <repository>
-      <id>labs-consol-release</id>
-      <name>ConSol* Labs Repository (Releases)</name>
-      <url>http://labs.consol.de/maven/repository</url>
-      <snapshots>
-        <enabled>false</enabled>
-      </snapshots>
-      <releases>
-        <enabled>true</enabled>
-      </releases>
-    </repository>
-    <repository>
-      <id>labs-consol-snapshot</id>
-      <name>ConSol* Labs Repository (Snapshots)</name>
-      <url>http://labs.consol.de/maven/snapshots-repository</url>
-      <snapshots>
-        <enabled>true</enabled>
-      </snapshots>
+      <id>sonatype-nexus-snapshots</id>
+      <name>Sonatype Nexus Snapshots</name>
+      <url>
+        http://oss.sonatype.org/content/repositories/snapshots
+      </url>
       <releases>
         <enabled>false</enabled>
       </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
     </repository>
   </repositories>
+
+  <distributionManagement>
+    <snapshotRepository>
+      <id>sonatype-nexus-snapshots</id>
+      <name>Sonatype Nexus Snapshots</name>
+      <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
+    </snapshotRepository>
+    <repository>
+      <id>sonatype-nexus-staging</id>
+      <name>Nexus Release Repository</name>
+      <url>
+        https://oss.sonatype.org/service/local/staging/deploy/maven2/
+      </url>
+    </repository>
+  </distributionManagement>
   
-  <pluginRepositories>
-    <pluginRepository>
-      <id>com.springsource.repository.bundles.milestone</id>
-      <name>SpringSource Enterprise Bundle Repository</name>
-      <url>http://repository.springsource.com/maven/bundles/milestone</url>
-    </pluginRepository>
-  </pluginRepositories>
-
-
   <profiles>
     <profile>
-      <!-- Distribution to the target maven repo -->
-      <id>dist-labs</id>
-      <distributionManagement>
-        <repository>
-          <id>consol-labs-release</id>
-          <url>scpexe://labs.consol.de/home/maven-repository/www/htdocs/repository</url>
-        </repository>
-        <snapshotRepository>
-          <id>consol-labs-snapshots</id>
-          <url>scpexe://labs.consol.de/home/maven-repository/www/htdocs/snapshots-repository</url>
-        </snapshotRepository>
-        <site>
-          <id>jolokia-site</id>
-          <url>scpexe://labs.consol.de/home/jolokia/www/htdocs</url>
-        </site>
-      </distributionManagement>
+      <!-- Distribution to maven central. This is default deployment target -->
+      <id>dist</id>
       <build>
         <plugins>
           <plugin>
@@ -427,11 +457,24 @@
               </execution>
             </executions>
           </plugin>
-
+          
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          
           <plugin>
             <groupId>org.apache.maven.plugins</groupId>
             <artifactId>maven-gpg-plugin</artifactId>
-            <version>1.1</version>
+            <version>1.4</version>
             <executions>
               <execution>
                 <id>sign-artifacts</id>
@@ -448,7 +491,39 @@
         </plugins>
       </build>
     </profile>
-
+    
+    <profile>
+      <!-- Distribution to labs.consol.de, for artefacts and site -->
+      <id>labs</id>
+      <distributionManagement>
+        <repository>
+          <id>consol-labs-release</id>
+          <url>scpexe://labs.consol.de/home/maven-repository/www/htdocs/repository</url>
+        </repository>
+        <snapshotRepository>
+          <id>consol-labs-snapshots</id>
+          <url>scpexe://labs.consol.de/home/maven-repository/www/htdocs/snapshots-repository</url>
+        </snapshotRepository>
+        <site>
+          <id>jolokia-site</id>
+          <url>scpexe://labs.consol.de/home/jolokia/www/htdocs</url>
+        </site>
+      </distributionManagement>
+      <build>
+        <pluginManagement>
+          <plugins>
+            <plugin>
+              <groupId>org.apache.felix</groupId>
+              <artifactId>maven-bundle-plugin</artifactId>
+              <configuration>
+                <remoteOBR>true</remoteOBR>
+              </configuration>
+            </plugin>
+          </plugins>
+        </pluginManagement>
+      </build>
+    </profile>
+    
     <profile>
       <id>obr-release</id>
       <build>
@@ -483,27 +558,7 @@
       </build>
     </profile>
 
-    <profile>
-      <id>maven-3</id>
-      <activation>
-        <file>
-          <!--  This employs that the basedir expression is only recognized by Maven 3.x (see MNG-2363) -->
-          <exists>${basedir}</exists>
-        </file>
-      </activation>
-      <build>
-        <pluginManagement>
-          <plugins>
-            <plugin>
-              <groupId>org.apache.maven.plugins</groupId>
-              <artifactId>maven-site-plugin</artifactId>
-              <version>3.0</version>
-            </plugin>
-          </plugins>
-        </pluginManagement>
-      </build>
-    </profile>
-
+    <!-- Profile for running only Java 5 compliant tests-->
     <profile>
       <id>java5</id>
       <activation>
@@ -523,11 +578,12 @@
       </build>
     </profile>
 
+    <!-- Include Roo, which is not build by default -->
     <profile>
       <id>roo</id>
       <modules>
         <module>tools/roo-addon</module>
       </modules>
-    </profile>
+  </profile>
   </profiles>
 </project>

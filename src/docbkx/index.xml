@@ -6,7 +6,7 @@
       <inlinegraphic align="right" fileref="jolokia_logo.png"/>
       Jolokia - Reference Documentation
     </title>
-    <releaseinfo>0.95</releaseinfo>
+    <releaseinfo>1.0.0</releaseinfo>
     <authorgroup>
       <author>
         <firstname>Roland</firstname>
@@ -30,9 +30,9 @@
   <xi:include href='clients.xml'/>
   <xi:include href='tools.xml'/>
 
-  <appendix id="appendix">
-    <title>Appendix</title>
-    <xi:include href='sample.xml'/>
-    <xi:include href='jmx4perl.xml'/>
-  </appendix>
+  <!-- <appendix id="appendix"> -->
+  <!--   <title>Appendix</title> -->
+  <!--   <xi:include href='sample.xml'/> -->
+  <!--   <xi:include href='jmx4perl.xml'/> -->
+  <!-- </appendix> -->
 </book>

@@ -1,13 +1,9 @@
 package org.jolokia.converter.object;
 
 import java.lang.reflect.Array;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
-import org.jolokia.util.ClassUtil;
-import org.jolokia.util.DateUtil;
+import org.jolokia.util.*;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
@@ -61,8 +57,10 @@ public class StringToObjectConverter {
         PARSER_MAP.put(Date.class.getName(),new DateParser());
 
         JSONParser jsonExtractor = new JSONParser();
-        PARSER_MAP.put(JSONObject.class.getName(), jsonExtractor);
-        PARSER_MAP.put(JSONArray.class.getName(), jsonExtractor);
+        for (Class type : new Class[] { Map.class, List.class,
+                                        JSONObject.class, JSONArray.class }) {
+            PARSER_MAP.put(type.getName(),jsonExtractor);
+        }
 
         TYPE_SIGNATURE_MAP.put("Z",boolean.class);
         TYPE_SIGNATURE_MAP.put("B",byte.class);
@@ -191,7 +189,7 @@ public class StringToObjectConverter {
                 throw new IllegalArgumentException("Cannot convert to unknown array type " + t);
             }
         }
-        String[] values = split(pValue);
+        String[] values = EscapeUtil.splitAsArray(pValue, EscapeUtil.PATH_ESCAPE, ",");
         Object ret = Array.newInstance(valueType,values.length);
         int i = 0;
         for (String value : values) {
@@ -202,11 +200,10 @@ public class StringToObjectConverter {
 
     // Convert a list to an array of the given type
     private Object convertListToArray(Class pType, List pList) {
-        List argAsList = (List) pList;
         Class valueType = pType.getComponentType();
-        Object ret = Array.newInstance(valueType, argAsList.size());
+        Object ret = Array.newInstance(valueType, pList.size());
         int i = 0;
-        for (Object value : argAsList) {
+        for (Object value : pList) {
             if (value == null) {
                 if (!valueType.isPrimitive()) {
                     Array.set(ret,i++,null);
@@ -226,12 +223,6 @@ public class StringToObjectConverter {
         return ret;
     }
 
-    private String[] split(String pValue) {
-        // For now, split simply on ','. This is very simplistic
-        // and will fail on complex strings containing commas as content.
-        // Use a full blown CSV parser then (but only for string)
-        return pValue.split("\\s*,\\s*");
-    }
 
     
     // ===========================================================================

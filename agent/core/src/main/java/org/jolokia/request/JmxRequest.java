@@ -51,7 +51,6 @@ public abstract class JmxRequest {
     // Path parts, which are used for selecting parts of the return value
     private List<String> pathParts;
 
-
     /**
      * Constructor used for representing {@link HttpMethod#GET} requests.
      *
@@ -74,7 +73,7 @@ public abstract class JmxRequest {
     public JmxRequest(Map<String, ?> pMap, Map<String, String> pInitParams) {
         this(RequestType.getTypeByName((String) pMap.get("type")),
              HttpMethod.POST,
-             PathUtil.parsePath((String) pMap.get("path")),
+             EscapeUtil.parsePath((String) pMap.get("path")),
              pInitParams);
 
         Map target = (Map) pMap.get("target");
@@ -186,7 +185,7 @@ public abstract class JmxRequest {
      * @return path as string or null if no path is given.
      */
     public String getPath() {
-        return PathUtil.combineToPath(pathParts);
+        return EscapeUtil.combineToPath(pathParts);
     }
 
     /**

@@ -49,7 +49,7 @@ public class J4pReadIntegrationTest extends AbstractJ4pIntegrationTest {
     public void errorTest() throws MalformedObjectNameException, J4pException {
         J4pReadRequest req = new J4pReadRequest("no.domain:name=vacuum","oxygen");
         try {
-            J4pReadResponse resp = j4pClient.execute(req);
+            j4pClient.execute(req);
             fail();
         } catch (J4pRemoteException exp) {
             assertEquals(404,exp.getStatus());
@@ -184,7 +184,7 @@ public class J4pReadIntegrationTest extends AbstractJ4pIntegrationTest {
     public void mbeanPattern() throws MalformedObjectNameException, J4pException {
         J4pReadRequest req = new J4pReadRequest("*:type=attribute","LongSeconds");
         J4pReadResponse resp = j4pClient.execute(req);
-        assertEquals(2,resp.getObjectNames().size());
+        assertEquals(1,resp.getObjectNames().size());
         Map respVal = resp.getValue();
         assertTrue(respVal.containsKey(itSetup.getAttributeMBean()));
         Map attrs = (Map) respVal.get(itSetup.getAttributeMBean());
@@ -222,7 +222,7 @@ public class J4pReadIntegrationTest extends AbstractJ4pIntegrationTest {
         J4pReadRequest req = new J4pReadRequest("*:type=attribute","LongSeconds","List");
         assertNull(req.getPath());
         J4pReadResponse resp = j4pClient.execute(req);
-        assertEquals(2,resp.getObjectNames().size());
+        assertEquals(1,resp.getObjectNames().size());
         Map respVal = resp.getValue();
         Map attrs = (Map) respVal.get(itSetup.getAttributeMBean());
         assertEquals(2,attrs.size());
@@ -275,6 +275,22 @@ public class J4pReadIntegrationTest extends AbstractJ4pIntegrationTest {
         Map innerInnerMap = (Map) innerList.get(0);
         assertEquals(innerInnerMap.get("deep"), "inside");
     }
+
+   @Test
+   public void processingOptionsTest() throws J4pException, MalformedObjectNameException {
+       J4pReadRequest request = new J4pReadRequest("jolokia.it:type=mxbean","ComplexTestData");
+       Map<J4pQueryParameter,String> params = new HashMap<J4pQueryParameter, String>();
+       params.put(J4pQueryParameter.MAX_DEPTH,"0");
+       params.put(J4pQueryParameter.IGNORE_ERRORS,"true");
+       for (String method : new String[] { "GET", "POST" }) {
+           J4pReadResponse response = j4pClient.execute(request,method,params);
+           JSONObject value = response.getValue();
+           Object complex = value.get("complex");
+           assertTrue(complex instanceof String);
+           assertTrue(complex.toString().contains("TabularData"));
+       }
+
+   }
 
     private void checkNames(String pMethod, List<String> ... pNames) throws MalformedObjectNameException, J4pException {
         for (int i = 0;i<pNames.length;i++) {

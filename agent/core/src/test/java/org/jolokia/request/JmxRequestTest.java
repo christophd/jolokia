@@ -16,12 +16,11 @@ package org.jolokia.request;
  *  limitations under the License.
  */
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
 import javax.management.MalformedObjectNameException;
 
-import org.jolokia.util.PathUtil;
+import org.jolokia.util.EscapeUtil;
 import org.jolokia.util.RequestType;
 import org.json.simple.JSONObject;
 import org.testng.annotations.Test;
@@ -39,12 +38,12 @@ public class JmxRequestTest {
 
     @Test
     public void testPathSplitting() throws MalformedObjectNameException {
-        List<String> paths = PathUtil.parsePath("hello/world");
+        List<String> paths = EscapeUtil.parsePath("hello/world");
         assertEquals(paths.size(),2);
         assertEquals(paths.get(0),"hello");
         assertEquals(paths.get(1),"world");
 
-        paths = PathUtil.parsePath("hello\\/world/second");
+        paths = EscapeUtil.parsePath("hello!/world/second");
         assertEquals(paths.size(),2);
         assertEquals(paths.get(0),"hello/world");
         assertEquals(paths.get(1),"second");
@@ -52,8 +51,8 @@ public class JmxRequestTest {
 
     @Test
     public void testPathGlueing() throws MalformedObjectNameException {
-        String path = PathUtil.combineToPath(Arrays.asList("hello/world", "second"));
-        assertEquals(path,"hello\\/world/second");
+        String path = EscapeUtil.combineToPath(Arrays.asList("hello/world", "second"));
+        assertEquals(path,"hello!/world/second");
     }
 
     // =================================================================================
@@ -67,7 +66,7 @@ public class JmxRequestTest {
                                   "attribute","HeapMemoryUsage",
                                   "path","used"),null)
         }) {
-            assertEquals(req.getType(),RequestType.READ);
+            assertEquals(req.getType(), RequestType.READ);
             assertEquals(req.getObjectNameAsString(),"java.lang:type=Memory");
             assertEquals(req.getAttributeName(),"HeapMemoryUsage");
             assertEquals(req.getPath(),"used");
@@ -82,22 +81,62 @@ public class JmxRequestTest {
     @Test
     public void readRequestMultiAttributes() {
         for (JmxReadRequest req : new JmxReadRequest[] {
-                (JmxReadRequest) JmxRequestFactory.createGetRequest("read/java.lang:type=Memory/HeapMemoryUsage/used", null),
+                (JmxReadRequest) JmxRequestFactory.createGetRequest("read/java.lang:type=Memory/Heap!/Memory!/Usage,NonHeapMemoryUsage", null),
                 (JmxReadRequest) JmxRequestFactory.createPostRequest(
                         createMap("type", "read", "mbean", "java.lang:type=Memory",
-                                  "attribute","HeapMemoryUsage",
-                                  "path","used"),null)
+                                  "attribute",Arrays.asList("Heap/Memory/Usage","NonHeapMemoryUsage")),null)
         }) {
-            assertEquals(req.getType(),RequestType.READ);
-            assertEquals(req.getObjectNameAsString(),"java.lang:type=Memory");
-            assertEquals(req.getAttributeName(),"HeapMemoryUsage");
-            assertEquals(req.getPath(),"used");
+            assertTrue(req.isMultiAttributeMode());
 
-            verify(req,"type","read");
-            verify(req,"mbean","java.lang:type=Memory");
-            verify(req,"attribute","HeapMemoryUsage");
-            verify(req,"path","used");
+            for (List list : new List[] { (List) req.toJSON().get("attribute"), req.getAttributeNames() }) {
+                assertEquals(list.size(), 2);
+                assertTrue(list.contains("Heap/Memory/Usage"));
+                assertTrue(list.contains("NonHeapMemoryUsage"));
+                assertTrue(req.toString().contains("attribute=["));
+                try {
+                    req.getAttributeName();
+                    fail();
+                } catch (IllegalStateException exp) {
+                    assertTrue(exp.getMessage().contains("getAttributeNames"));
+                }
+            }
         }
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class,expectedExceptionsMessageRegExp = ".*Map.*")
+    public void readRequestInvalidArguments() {
+        JmxRequestFactory.createPostRequest(
+                createMap("type", "read", "mbean", "java.lang:type=Memory",
+                          "attribute",createMap("bla","blub")),null);
+    }
+
+    @Test
+    public void readRequestNullArguments() {
+        for (JmxReadRequest req : new JmxReadRequest[] {
+                (JmxReadRequest) JmxRequestFactory.createGetRequest("read/java.lang:type=Memory", null),
+                (JmxReadRequest) JmxRequestFactory.createPostRequest(
+                        createMap("type", "read", "mbean", "java.lang:type=Memory"),null)
+        }) {
+            assertFalse(req.isMultiAttributeMode());
+            assertFalse(req.hasAttribute());
+            assertNull(req.getAttributeName());
+            for (List list : new List[] { (List) req.toJSON().get("attribute"), req.getAttributeNames() }) {
+                assertNull(list);
+            }
+        }
+    }
+
+    @Test
+    public void readRequestMultiNullList() {
+        List args = new ArrayList();
+        args.add(null);
+        JmxReadRequest req = (JmxReadRequest) JmxRequestFactory.createPostRequest(
+                createMap("type", "read", "mbean", "java.lang:type=Memory",
+                          "attribute",args),null);
+        assertFalse(req.isMultiAttributeMode());
+        assertNull(req.getAttributeName());
+        assertNull(req.getAttributeNames());
+
     }
 
     @Test

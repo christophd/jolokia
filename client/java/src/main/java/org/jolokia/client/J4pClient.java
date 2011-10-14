@@ -38,7 +38,7 @@ import org.json.simple.parser.ParseException;
  * @author roland
  * @since Apr 24, 2010
  */
-public class J4pClient  {
+public class J4pClient extends J4pClientBuilderFactory {
 
     // Http client used for connecting the j4p Agent
     private HttpClient httpClient;
@@ -61,7 +61,6 @@ public class J4pClient  {
         httpClient = new DefaultHttpClient(cm, params);
     }
 
-
     /**
      * Constructor using a given HttpClient
      *
@@ -72,7 +71,6 @@ public class J4pClient  {
         requestHandler = new J4pRequestHandler(pJ4pServerUrl);
         httpClient = pHttpClient;
     }
-
 
     /**
      * Execute a single J4pRequest returning a single response.
@@ -85,8 +83,29 @@ public class J4pClient  {
      * @throws java.io.IOException when the execution fails
      * @throws org.json.simple.parser.ParseException if parsing of the JSON answer fails
      */
-    public <R extends J4pResponse<T>,T extends J4pRequest> R execute(T pRequest) throws J4pException {
-        return this.<R,T>execute(pRequest,null);
+    public <R extends J4pResponse<T>,T extends J4pRequest> R execute(T pRequest)
+            throws J4pException {
+        // type spec is required to keep OpenJDK 1.6 happy (other JVM dont have a problem
+        // with infering the type is missing here)
+        return this.<R,T>execute(pRequest,null,null);
+    }
+
+    /**
+     * Execute a single J4pRequest returning a single response.
+     * The HTTP Method used is determined automatically.
+     *
+     * @param pRequest request to execute
+     * @param pProcessingOptions optional map of processing options
+     * @param <R> response type
+     * @param <T> request type
+     * @return the response as returned by the server
+     * @throws java.io.IOException when the execution fails
+     * @throws org.json.simple.parser.ParseException if parsing of the JSON answer fails
+     */
+    public <R extends J4pResponse<T>,T extends J4pRequest> R execute(T pRequest,
+                                                                     Map<J4pQueryParameter,String> pProcessingOptions)
+            throws J4pException {
+        return this.<R,T>execute(pRequest,null,pProcessingOptions);
     }
 
     /**
@@ -94,14 +113,33 @@ public class J4pClient  {
      *
      * @param pRequest request to execute
      * @param pMethod method to use which should be either "GET" or "POST"
+     *
      * @param <R> response type
      * @param <T> request type
      * @return response object
      * @throws J4pException if something's wrong (e.g. connection failed or read timeout)
      */
     public <R extends J4pResponse<T>,T extends J4pRequest> R execute(T pRequest,String pMethod) throws J4pException {
+        return this.<R,T>execute(pRequest, pMethod, null);
+    }
+
+    /**
+     * Execute a single J4pRequest which returns a single response.
+     *
+     * @param pRequest request to execute
+     * @param pMethod method to use which should be either "GET" or "POST"
+     * @param pProcessingOptions optional map of processiong options
+     *
+     * @param <R> response type
+     * @param <T> request type
+     * @return response object
+     * @throws J4pException if something's wrong (e.g. connection failed or read timeout)
+     */
+    public <R extends J4pResponse<T>,T extends J4pRequest> R execute(T pRequest,String pMethod,
+                                                                     Map<J4pQueryParameter,String> pProcessingOptions)
+            throws J4pException {
         try {
-            HttpResponse response = httpClient.execute(requestHandler.getHttpRequest(pRequest,pMethod));
+            HttpResponse response = httpClient.execute(requestHandler.getHttpRequest(pRequest,pMethod,pProcessingOptions));
             JSONAware jsonResponse = extractJsonResponse(pRequest,response);
             if (! (jsonResponse instanceof JSONObject)) {
                 throw new J4pException("Invalid JSON answer for a single request (expected a map but got a " + jsonResponse.getClass() + ")");
@@ -115,11 +153,55 @@ public class J4pClient  {
             }
         }
         catch (IOException e) {
-            throw mapIOException(e);
+            throw mapException(e);
         } catch (URISyntaxException e) {
-            throw mapIOException(e);
+            throw mapException(e);
         }
     }
+
+    /**
+     * Execute multiple requests at once. All given request will result in a single HTTP request where it gets
+     * dispatched on the agent side. The results are given back in the same order as the arguments provided.
+     *
+     * @param pRequests requests to execute
+     * @param <R> response type
+     * @param <T> request type
+     * @return list of responses, one response for each request
+     * @throws J4pException when an communication error occurs
+     */
+    public <R extends J4pResponse<T>,T extends J4pRequest> List<R> execute(List<T> pRequests)
+            throws J4pException {
+        return this.<R,T>execute(pRequests, null);
+    }
+
+    /**
+     * Execute multiple requests at once. All given request will result in a single HTTP request where it gets
+     * dispatched on the agent side. The results are given back in the same order as the arguments provided.
+     *
+     * @param pRequests requests to execute
+     * @param pProcessingOptions processing options to use
+     * @param <R> response type
+     * @param <T> request type
+     * @return list of responses, one response for each request
+     * @throws J4pException when an communication error occurs
+     */
+    public <R extends J4pResponse<T>,T extends J4pRequest> List<R> execute(List<T> pRequests,Map<J4pQueryParameter,String> pProcessingOptions)
+            throws J4pException {
+        try {
+            HttpResponse response = httpClient.execute(requestHandler.getHttpRequest(pRequests,pProcessingOptions));
+            JSONAware jsonResponse = extractJsonResponse(null, response);
+
+            verifyJsonResponse(jsonResponse);
+
+            return this.<R,T>extractResponses(jsonResponse, pRequests);
+        } catch (IOException e) {
+            throw mapException(e);
+        } catch (URISyntaxException e) {
+            throw mapException(e);
+        }
+    }
+
+    // =====================================================================================================
 
     @SuppressWarnings("PMD.PreserveStackTrace")
     private <T extends J4pRequest> JSONAware extractJsonResponse(T pRequest, HttpResponse pResponse) throws J4pException {
@@ -138,32 +220,8 @@ public class J4pClient  {
         }
     }
 
-    /**
-     * Execute multiple requests at once. All given request will result in a single HTTP request where it gets
-     * dispatched on the agent side. The results are given back in the same order as the arguments provided.
-     *
-     * @param pRequests requests to execute
-     * @param <R> response type
-     * @param <T> request type
-     * @return list of responses, one response for each request
-     * @throws J4pException when an communication error occurs
-     */
-    @SuppressWarnings("PMD.PreserveStackTrace")
-    public <R extends J4pResponse<T>,T extends J4pRequest> List<R> execute(List<T> pRequests) throws J4pException {
-        try {
-            HttpResponse response = httpClient.execute(requestHandler.getHttpRequest(pRequests));
-            JSONAware jsonResponse = extractJsonResponse(null, response);
-
-            verifyJsonResponse(jsonResponse);
-
-            return extractResponses(jsonResponse, pRequests);
-        } catch (IOException e) {
-            throw mapIOException(e);
-        }
-    }
 
     // Extract J4pResponses from a returned bulk JSON answer
-    @SuppressWarnings("PMD.PreserveStackTrace")
     private <R extends J4pResponse<T>, T extends J4pRequest> List<R> extractResponses(JSONAware pJsonResponse, List<T> pRequests) throws J4pException {
         JSONArray responseArray = (JSONArray) pJsonResponse;
         List<R> ret = new ArrayList<R>(responseArray.size());
@@ -202,7 +260,7 @@ public class J4pClient  {
     }
 
     // Map IO-Exceptions accordingly
-    private J4pException mapIOException(Exception pException) throws J4pException {
+    private J4pException mapException(Exception pException) throws J4pException {
         if (pException instanceof ConnectException) {
             return new J4pConnectException(
                     "Cannot connect to " + requestHandler.getJ4pServerUrl() + ": " + pException.getMessage(),
@@ -261,7 +319,7 @@ public class J4pClient  {
      * @throws J4pException when an communication error occurs
      */
     public <R extends J4pResponse<T>,T extends J4pRequest> List<R> execute(T ... pRequests) throws J4pException {
-        return execute(Arrays.asList(pRequests));
+        return this.<R,T>execute(Arrays.asList(pRequests));
     }
 
     /**
@@ -273,61 +331,5 @@ public class J4pClient  {
         return httpClient;
     }
 
-    // =============================================================================================
-    // Builder for setting up an agent
 
-    /** See {@link org.jolokia.client.J4pClientBuilder#url} */
-    public static J4pClientBuilder url(String pUrl) {
-        return new J4pClientBuilder().url(pUrl);
-    }
-
-    /** See {@link J4pClientBuilder#singleConnection()} */
-    public static J4pClientBuilder singleConnection() {
-        return new J4pClientBuilder().singleConnection();
-    }
-
-    /** See {@link J4pClientBuilder#pooledConnections()} */
-    public static J4pClientBuilder pooledConnections() {
-        return new J4pClientBuilder().pooledConnections();
-    }
-
-    /** See {@link org.jolokia.client.J4pClientBuilder#connectionTimeout(int)} */
-    public static J4pClientBuilder connectionTimeout(int pTimeOut) {
-        return new J4pClientBuilder().connectionTimeout(pTimeOut);
-    }
-
-    /** See {@link org.jolokia.client.J4pClientBuilder#socketTimeout(int)} */
-    public static J4pClientBuilder socketTimeout(int pTimeOut) {
-        return new J4pClientBuilder().socketTimeout(pTimeOut);
-    }
-
-    /** See {@link org.jolokia.client.J4pClientBuilder#maxTotalConnections(int)} */
-    public static J4pClientBuilder maxTotalConnections(int pConnections) {
-        return new J4pClientBuilder().maxTotalConnections(pConnections);
-    }
-
-    /** See {@link org.jolokia.client.J4pClientBuilder#maxConnectionPoolTimeout(int)} */
-    public static J4pClientBuilder maxConnectionPoolTimeout(int pConnectionPoolTimeout) {
-        return new J4pClientBuilder().maxConnectionPoolTimeout(pConnectionPoolTimeout);
-    }
-
-    /** See {@link org.jolokia.client.J4pClientBuilder#contentCharset(String)} */
-    public static J4pClientBuilder contentCharset(String pContentCharset) {
-        return new J4pClientBuilder().contentCharset(pContentCharset);
-    }
-
-    /** See {@link org.jolokia.client.J4pClientBuilder#expectContinue(boolean)} */
-    public static J4pClientBuilder expectContinue(boolean pUse) {
-        return new J4pClientBuilder().expectContinue(pUse);
-    }
-
-    /** See {@link org.jolokia.client.J4pClientBuilder#tcpNoDelay(boolean)} */
-    public static J4pClientBuilder tcpNoDelay(boolean pUse) {
-        return new J4pClientBuilder().tcpNoDelay(pUse);
-    }
-
-    /** See {@link org.jolokia.client.J4pClientBuilder#socketBufferSize(int)} */
-    public static J4pClientBuilder socketBufferSize(int pSize) {
-        return new J4pClientBuilder().socketBufferSize(pSize);
-    }
 }

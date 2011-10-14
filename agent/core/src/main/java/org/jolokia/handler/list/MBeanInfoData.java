@@ -167,7 +167,6 @@ public class MBeanInfoData {
         if (stack.empty()) {
             addFullMBeanInfo(mBeanMap, mBeanInfo);
         } else {
-            // pathStack gets cloned here since the processing will eat it up
             addPartialMBeanInfo(mBeanMap, mBeanInfo,stack);
         }
         // Trim if required
@@ -190,16 +189,16 @@ public class MBeanInfoData {
     public void handleException(ObjectName pName, IOException pExp) throws IOException {
         // In case of a remote call, IOException can occur e.g. for
         // NonSerializableExceptions
-             if (pathStack.size() == 0) {
-                 JSONObject mBeansMap = getOrCreateJSONObject(infoMap, pName.getDomain());
-                 JSONObject mBeanMap = getOrCreateJSONObject(mBeansMap, pName.getCanonicalKeyPropertyListString());
-                 mBeanMap.put(DataKeys.ERROR.getKey(), pExp);
-             } else {
-                 // Happens for a deeper request, i.e with a path pointing directly into an MBean,
-                 // Hence we throw immediately an error here since there will be only this exception
-                 // and no extra info
-                 throw pExp;
-            }
+        if (pathStack.size() == 0) {
+            JSONObject mBeansMap = getOrCreateJSONObject(infoMap, pName.getDomain());
+            JSONObject mBeanMap = getOrCreateJSONObject(mBeansMap, pName.getCanonicalKeyPropertyListString());
+            mBeanMap.put(DataKeys.ERROR.getKey(), pExp);
+        } else {
+            // Happens for a deeper request, i.e with a path pointing directly into an MBean,
+            // Hence we throw immediately an error here since there will be only this exception
+            // and no extra info
+            throw pExp;
+        }
     }
 
     /**
@@ -274,6 +273,7 @@ public class MBeanInfoData {
             return new Stack<String>();
         } else {
             // Trim of domain and MBean properties
+            // pathStack gets cloned here since the processing will eat it up
             Stack<String> ret = (Stack<String>) pathStack.clone();
             for (int i = 0;i < pLevel;i++) {
                 ret.pop();

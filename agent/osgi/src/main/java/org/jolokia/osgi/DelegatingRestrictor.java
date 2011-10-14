@@ -7,12 +7,29 @@ import org.jolokia.util.HttpMethod;
 import org.jolokia.util.RequestType;
 import org.osgi.framework.*;
 
+/*
+ *  Copyright 2009-2010 Roland Huss
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ */
+
+
 /**
  * A restrictor which delegate to a RestrictorService if available or denies access
  * if none is available. If multiple services are available, it will grant access
  * only if all restrictors allow
  */
-class DelegatingRestrictor extends DenyAllRestrictor {
+class DelegatingRestrictor implements Restrictor {
 
     private BundleContext bundleContext;
 
@@ -65,7 +82,6 @@ class DelegatingRestrictor extends DenyAllRestrictor {
     };
 
     /** {@inheritDoc} */
-    @Override
     public boolean isHttpMethodAllowed(HttpMethod pMethod) {
         return checkRestrictorService(HTTP_METHOD_CHECK,pMethod);
     }
@@ -80,7 +96,6 @@ class DelegatingRestrictor extends DenyAllRestrictor {
     };
 
     /** {@inheritDoc} */
-    @Override
     public boolean isTypeAllowed(RequestType pType) {
         return checkRestrictorService(TYPE_CHECK, pType);
     }
@@ -95,7 +110,6 @@ class DelegatingRestrictor extends DenyAllRestrictor {
     };
 
     /** {@inheritDoc} */
-    @Override
     public boolean isAttributeReadAllowed(ObjectName pName, String pAttribute) {
         return checkRestrictorService(ATTRIBUTE_READ_CHECK,pName,pAttribute);
     }
@@ -110,7 +124,6 @@ class DelegatingRestrictor extends DenyAllRestrictor {
     };
 
     /** {@inheritDoc} */
-    @Override
     public boolean isAttributeWriteAllowed(ObjectName pName, String pAttribute) {
         return checkRestrictorService(ATTRIBUTE_WRITE_CHECK,pName,pAttribute);
     }
@@ -125,7 +138,6 @@ class DelegatingRestrictor extends DenyAllRestrictor {
     };
 
     /** {@inheritDoc} */
-    @Override
     public boolean isOperationAllowed(ObjectName pName, String pOperation) {
         return checkRestrictorService(OPERATION_CHECK,pName,pOperation);
     }
@@ -144,7 +156,6 @@ class DelegatingRestrictor extends DenyAllRestrictor {
     };
 
     /** {@inheritDoc} */
-    @Override
     public boolean isRemoteAccessAllowed(String... pHostOrAddress) {
         return checkRestrictorService(REMOTE_CHECK,pHostOrAddress);
     }

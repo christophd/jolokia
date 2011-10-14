@@ -29,9 +29,10 @@ import javax.management.*;
  */
 public class ItSetup {
 
-    private String[] domains = new String[] { "jolokia.it","jmx4perl.it" } ;
+    private static final String JOLOKIA_IT_DOMAIN = "jolokia.it";
 
     private String[] strangeNamesShort = {
+            "\\/",
             "simple",
             "/slash-simple/",
             "/--/",
@@ -39,7 +40,8 @@ public class ItSetup {
             "//server/client",
             "service%3ajmx%3armi%3a///jndi/rmi%3a//bhut%3a9999/jmxrmi",
             "\"jdbc/testDB\"",
-            "name with space"
+            "name with space",
+            "n!a!m!e with !/!"
 //            "äöüßÄÖÜ"
     };
     private List<String> strangeNames = new ArrayList<String>();
@@ -56,7 +58,8 @@ public class ItSetup {
               "***",
               "\"\"\"",
               ":::",
-              "???"
+              "???",
+              "!!!"
     };
     private List<String> escapedNames = new ArrayList<String>();
 
@@ -84,31 +87,24 @@ public class ItSetup {
         try {
             // Register my test mbeans
             for (String name : strangeNamesShort) {
-                for (String domain : domains) {
-                    String strangeName = domain + ":type=naming,name=" + name;
-                    strangeNames.add(strangeName);
-                    registerMBean(new ObjectNameChecking(strangeName),strangeName);
-                }
+                String strangeName = JOLOKIA_IT_DOMAIN + ":type=naming,name=" + name;
+                strangeNames.add(strangeName);
+                registerMBean(new ObjectNameChecking(strangeName),strangeName);
             }
             for (String name : escapedNamesShort) {
-                for (String domain: domains) {
-                    String escapedName = domain + ":type=escape,name=" + ObjectName.quote(name);
-                    escapedNames.add(escapedName);
-                    registerMBean(new ObjectNameChecking(escapedName),escapedName);
-                }
+                String escapedName = JOLOKIA_IT_DOMAIN + ":type=escape,name=" + ObjectName.quote(name);
+                escapedNames.add(escapedName);
+                registerMBean(new ObjectNameChecking(escapedName),escapedName);
             }
 
             // Other MBeans
             boolean isWebsphere = checkForClass("com.ibm.websphere.management.AdminServiceFactory");
-            for (String domain : domains) {
-                registerMBean(new OperationChecking(domain),isWebsphere ? null : domain + ":type=operation");
-                registerMBean(new AttributeChecking(domain),isWebsphere ? null : domain + ":type=attribute");
-                // MXBean
-                if (hasMxBeanSupport()) {
-                    registerMBean(new MxBeanSample(),isWebsphere ? null : domain + ":type=mxbean");
-                }
+            registerMBean(new OperationChecking(JOLOKIA_IT_DOMAIN),isWebsphere ? null : JOLOKIA_IT_DOMAIN + ":type=operation");
+            registerMBean(new AttributeChecking(JOLOKIA_IT_DOMAIN),isWebsphere ? null : JOLOKIA_IT_DOMAIN + ":type=attribute");
+            // MXBean
+            if (hasMxBeanSupport()) {
+                registerMBean(new MxBeanSample(),isWebsphere ? null : JOLOKIA_IT_DOMAIN + ":type=mxbean");
             }
-
         } catch (RuntimeException e) {
             throw new RuntimeException("Error",e);
         } catch (Exception exp) {
@@ -121,11 +117,11 @@ public class ItSetup {
     }
 
     public String getAttributeMBean() {
-        return domains[0] + ":type=attribute";
+        return JOLOKIA_IT_DOMAIN + ":type=attribute";
     }
 
     public String getOperationMBean() {
-        return domains[0] + ":type=operation";
+        return JOLOKIA_IT_DOMAIN + ":type=operation";
     }
 
     @SuppressWarnings("PMD.SystemPrintln")

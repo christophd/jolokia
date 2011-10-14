@@ -10,29 +10,38 @@ vi src/docbkx/index.xml
 vi client/javascript/src/main/javascript/jolokia.js
 vi agent/core/src/main/java/org/jolokia/Version.java
 vi pom.xml
---> <currentStableVersion>0.82</currentStableVersion>
-    <currentSnapshotVersion>0.83-SNAPSHOT</currentSnapshotVersion>
-    include roo-addon 
+--> <currentStableVersion>1.0.0</currentStableVersion>
+    <currentSnapshotVersion>1.0.1-SNAPSHOT</currentSnapshotVersion>
+
+
+Checking and push
 
 # ========================================================================
-# Build release
+# Build release and deploy it on labs
 git clone git@github.com:rhuss/jolokia.git
 cd jolokia
-mvn -Proo -DdevelopmentVersion=0.83-SNAPSHOT -DreleaseVersion=0.84 -Dtag=v0.84 -Pdist-labs,roo release:prepare
-mvn -Proo -DdevelopmentVersion=0.83-SNAPSHOT -DreleaseVersion=0.84 -Dtag=v0.84 -Pdist-labs,roo release:perform
+mvn -DdevelopmentVersion=1.0.1-SNAPSHOT -DreleaseVersion=1.0.0 -Dtag=v1.0.0 -Plabs,dist,roo release:prepare
+mvn -DdevelopmentVersion=1.0.1-SNAPSHOT -DreleaseVersion=1.0.0 -Dtag=v1.0.0 -Plans,dist,roo release:perform
+
+# Copy assembly to labs:
+ssh jolokia@labs.consol.de mkdir -p www/dist/1.0.0/js
+cd target/checkout/target
+scp *gz *zip jolokia@labs.consol.de:www/dist/1.0.0/
+cd ../client/javascript/target 
+scp compressed/jolokia-* scripts/jolokia* jolokia@labs.consol.de:www/dist/1.0.0/js/
+cd ../../../../..
+
+# Deploy to Sonatype staging
+cd target/checkout
+mvn -Pdist,roo deploy
+cd ../..
 
 # Push tags and changes to github
 git push 
 git push --tags
 
-# Copy assembly to labs:
-ssh jolokia@labs.consol.de mkdir -p www/dist/0.95/js
-cd target/checkout/target
-scp *gz *zip jolokia@labs.consol.de:www/dist/0.95/
-cd ../client/javascript/target 
-scp compressed/jolokia-* scripts/jolokia* jolokia@labs.consol.de:www/dist/0.95/js/
 # ========================================================================
-# Adapte meta data
+# Adapt meta data
 
 # Add new release to jolokia.meta
 vi src/site/resources/jolokia.meta
@@ -45,18 +54,19 @@ md5 -q src/site/resources/jolokia.meta > src/site/resources/jolokia.meta.md5
 # ========================================================================
 # Recreate Website (~/jolokia)
 
-# Update version numbers in site.xml
-find . -name site.xml | xargs perl -i -p -e s/0.83-SNAPSHOT/0.84-SNAPSHOT/
-# Update 0.83-SNAPSHOT --> 0.84-SNAPSHOT
+# Update version number in site.xml to next dev version
+vi ./src/site/site.xml
+# Update Skin version to next snapshot
 vi tools/site-skin/pom.xml
 git commit -a
 
 # Adapted tracking code
 git co piwik
 git rebase master
-cd tools/site-skin; mvn clean intall;
+cd tools/site-skin; mvn clean install;
 cd ../..
-mvn -Pdist-labs site site:deploy
+mvn clean install
+mvn -Plabs site site:deploy
 
 # Roo-Plugin:
 # Adapt uri and version number in root-repository.xml to use a httpgpg URL instead of a relative http 

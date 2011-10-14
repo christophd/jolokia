@@ -89,7 +89,6 @@ public class HttpRequestHandler {
      * @return the JSON object containing the json results for one or more {@link JmxRequest} contained
      *         within the answer.
      *
-     * @throws MalformedObjectNameException if one or more request contain an invalid MBean name
      * @throws IOException if reading from the input stream fails
      */
     public JSONAware handlePostRequest(String pUri, InputStream pInputStream, String pEncoding, Map<String, String[]>  pParameterMap)
@@ -152,7 +151,7 @@ public class HttpRequestHandler {
         } catch (InstanceNotFoundException e) {
             return getErrorJSON(404,e);
         } catch (MBeanException e) {
-            return getErrorJSON(500,e);
+            return getErrorJSON(500,e.getTargetException());
         } catch (AttributeNotFoundException e) {
             return getErrorJSON(404,e);
         } catch (UnsupportedOperationException e) {

@@ -21,8 +21,12 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import javax.management.MBeanServer;
-import javax.management.MBeanServerConnection;
+import javax.management.*;
+
+import org.jolokia.request.JmxRequest;
+import org.jolokia.util.ConfigKey;
+import org.jolokia.util.LogHandler;
+import org.json.simple.JSONObject;
 
 /**
  * Detector for Glassfish servers
@@ -33,49 +37,72 @@ import javax.management.MBeanServerConnection;
 public class GlassfishDetector extends AbstractServerDetector {
 
     private static final Pattern GLASSFISH_VERSION = Pattern.compile("^.*GlassFish.*\\sv?(.*?)$",Pattern.CASE_INSENSITIVE);
-    private static final Pattern GLASSFISH_FULL_VERSION = Pattern.compile("^\\s*GlassFish.*?\\sv?([.\\d]+)\\s.*$?");
+    private static final Pattern GLASSFISH_FULL_VERSION = Pattern.compile("^.*GlassFish.*?\\sv?([.\\d]+).*$",Pattern.CASE_INSENSITIVE);
 
     /** {@inheritDoc} */
     public ServerHandle detect(Set<MBeanServer> pMbeanServers) {
-        String version = null;
-        boolean amxBooted = false;
-        String fullVersion = getSingleStringAttribute(pMbeanServers,"com.sun.appserv:j2eeType=J2EEServer,*","serverVersion");
-        if (fullVersion != null) {
-            Matcher matcher = GLASSFISH_VERSION.matcher(fullVersion);
-            if (matcher.matches()) {
-                version = matcher.group(1);
-            }
-        }
-        if (fullVersion == null || "3".equals(version)) {
-            String versionFromAmx = getSingleStringAttribute(pMbeanServers,"amx:type=domain-root,*","ApplicationServerFullVersion");
-            if (versionFromAmx != null) {
-                // AMX already booted
-                amxBooted = true;
-                version = getVersionFromFullVersion(version,versionFromAmx);
-            } else {
-                amxBooted = false;
-                version = getVersionFromFullVersion(version, System.getProperty("glassfish.version"));
-            }
-        } else {
-            // Last desperate try to get hold of Glassfish MBean
-            if (mBeanExists(pMbeanServers,"com.sun.appserver:type=Host,*")) {
-                version = "3";
-            }
-        }
-        if (version != null) {
-            Map<String,String> extraInfo = null;
-            if (hasAmx(version)) {
-                extraInfo = new HashMap<String,String>();
-                extraInfo.put("amxBooted",Boolean.toString(amxBooted));
-            }
-            return new GlassfishServerHandle(version,null,extraInfo);
+        String version = detectVersion(pMbeanServers);
+        if (version!= null) {
+            return new GlassfishServerHandle(version,null,new HashMap<String, String>());
         } else {
             return null;
         }
     }
 
-    private boolean hasAmx(String pVersion) {
-        return pVersion.startsWith("3");
+    private String detectVersion(Set<MBeanServer> pMbeanServers) {
+        String fullVersion = getSingleStringAttribute(pMbeanServers,"com.sun.appserv:j2eeType=J2EEServer,*","serverVersion");
+        String version = extractVersionFromFullVersion(fullVersion);
+        if (fullVersion == null || "3".equals(version)) {
+            String versionFromAmx = getSingleStringAttribute(pMbeanServers,"amx:type=domain-root,*","ApplicationServerFullVersion");
+            version =
+                    getVersionFromFullVersion(
+                            version,versionFromAmx != null ?
+                                     versionFromAmx :
+                                     System.getProperty("glassfish.version")
+                    );
+        } else if (mBeanExists(pMbeanServers,"com.sun.appserver:type=Host,*")) {
+            // Last desperate try to get hold of Glassfish MBean
+            version = "3";
+        }
+        return version;
+    }
+
+    private String extractVersionFromFullVersion(String pFullVersion) {
+        if (pFullVersion != null) {
+            Matcher matcher = GLASSFISH_VERSION.matcher(pFullVersion);
+            if (matcher.matches()) {
+               return matcher.group(1);
+            }
+        }
+        return null;
+    }
+
+    private boolean isAmxBooted(Set<? extends MBeanServerConnection> pServers) {
+        return mBeanExists(pServers,"amx:type=domain-root,*");
+    }
+
+    private void bootAmx(Set<? extends MBeanServerConnection> pServers, LogHandler pLoghandler) {
+        ObjectName bootMBean = null;
+        try {
+            bootMBean = new ObjectName("amx-support:type=boot-amx");
+        } catch (MalformedObjectNameException e) {
+            // Cannot happen ....
+        }
+        InstanceNotFoundException infExp = null;
+        for (MBeanServerConnection server : pServers) {
+            try {
+                server.invoke(bootMBean, "bootAMX", null, null);
+                return;
+            } catch (InstanceNotFoundException e) {
+                // Can be the case if multiple MBeanServers has been found, next try ...
+                infExp = e;
+            } catch (Exception e) {
+                pLoghandler.error("Exception while executing bootAmx: " + e, e);
+            }
+        }
+        if (infExp != null) {
+            pLoghandler.error("No bootAmx MBean found: ",infExp);
+        }
     }
 
     private String getVersionFromFullVersion(String pOriginalVersion,String pFullVersion) {
@@ -91,6 +118,8 @@ public class GlassfishDetector extends AbstractServerDetector {
     }
 
     private class GlassfishServerHandle extends ServerHandle {
+        private boolean amxShouldBeBooted = false;
+        private LogHandler logHandler;
 
         /**
          * Server handle for a glassfish server
@@ -100,17 +129,37 @@ public class GlassfishDetector extends AbstractServerDetector {
          * @param extraInfo extra infos
          */
         public GlassfishServerHandle(String version, URL agentUrl, Map<String, String> extraInfo) {
-            super("Sun", "glassfish", version, agentUrl, extraInfo);
+            super("Oracle", "glassfish", version, agentUrl, extraInfo);
         }
 
         /** {@inheritDoc} */
         @Override
         public Map<String, String> getExtraInfo(Set<? extends MBeanServerConnection> pServers) {
             Map<String,String> extra = super.getExtraInfo(pServers);
-            if (extra != null && hasAmx(getVersion())) {
-                extra.put("amxBooted",Boolean.toString(mBeanExists(pServers,"amx:type=domain-root,*")));
+            if (extra != null && getVersion().startsWith("3")) {
+                extra.put("amxBooted",Boolean.toString(isAmxBooted(pServers)));
             }
             return extra;
         }
+
+        @Override
+        public void preDispatch(Set<MBeanServer> pMBeanServers, JmxRequest pJmxReq) {
+            if (amxShouldBeBooted) {
+                bootAmx(pMBeanServers,logHandler);
+                amxShouldBeBooted = false;
+            }
+        }
+
+        /** {@inheritDoc} */
+        @Override
+        public void postDetect(Set<? extends MBeanServerConnection> pServers,
+                               Map<ConfigKey, String> pConfig, LogHandler pLoghandler) {
+            JSONObject opts = getDetectorOptions(pConfig,pLoghandler);
+            amxShouldBeBooted = (opts == null || opts.get("bootAmx") == null || (Boolean) opts.get("bootAmx"))
+                                && !isAmxBooted(pServers);
+            logHandler = pLoghandler;
+        }
     }
+
+
 }

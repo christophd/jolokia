@@ -4,8 +4,7 @@ import java.io.*;
 import java.util.*;
 
 import javax.management.RuntimeMBeanException;
-import javax.servlet.ServletConfig;
-import javax.servlet.ServletException;
+import javax.servlet.*;
 import javax.servlet.http.*;
 
 import org.jolokia.backend.BackendManager;
@@ -13,7 +12,6 @@ import org.jolokia.restrictor.*;
 import org.jolokia.util.ConfigKey;
 import org.jolokia.util.LogHandler;
 import org.json.simple.JSONAware;
-import org.json.simple.JSONObject;
 
 /*
  *  Copyright 2009-2010 Roland Huss
@@ -63,6 +61,9 @@ public class AgentServlet extends HttpServlet {
 
     // Restrictor to use as given in the constructor
     private Restrictor restrictor;
+    
+    // Mime type used for returning the answer
+    private String configMimeType;
 
     /**
      * No argument constructor, used e.g. by an servlet
@@ -136,11 +137,15 @@ public class AgentServlet extends HttpServlet {
         httpGetHandler = newGetHttpRequestHandler();
         httpPostHandler = newPostHttpRequestHandler();
 
-        Map<ConfigKey,String> config = servletConfigAsMap(pServletConfig);
+        Map<ConfigKey,String> config = configAsMap(pServletConfig);
         if (restrictor == null) {
             restrictor = createRestrictor(ConfigKey.POLICY_LOCATION.getValue(config));
         } else {
             logHandler.info("Using custom access restriction provided by " + restrictor);
+        }
+        configMimeType = config.get(ConfigKey.MIME_TYPE);
+        if (configMimeType == null) {
+            configMimeType = ConfigKey.MIME_TYPE.getDefaultValue();
         }
         backendManager = new BackendManager(config,logHandler, restrictor);
         requestHandler = new HttpRequestHandler(backendManager,logHandler);
@@ -195,6 +200,23 @@ public class AgentServlet extends HttpServlet {
         handle(httpPostHandler,req,resp);
     }
 
+    /**
+     * OPTION requests are treated as CORS preflight requests
+     *
+     * @param req the original request
+     * @param resp the response the answer are written to
+     * */
+    @Override
+    protected void doOptions(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+        Map<String,String> responseHeaders =
+                requestHandler.handleCorsPreflightRequest(
+                        req.getHeader("Origin"),
+                        req.getHeader("Access-Control-Request-Headers"));
+        for (Map.Entry<String,String> entry : responseHeaders.entrySet()) {
+            resp.setHeader(entry.getKey(),entry.getValue());
+        }
+    }
+
     @SuppressWarnings({ "PMD.AvoidCatchingThrowable", "PMD.AvoidInstanceofChecksInCatchClause" })
     private void handle(ServletRequestHandler pReqHandler,HttpServletRequest pReq, HttpServletResponse pResp) throws IOException {
         JSONAware json = null;
@@ -205,18 +227,40 @@ public class AgentServlet extends HttpServlet {
             // Dispatch for the proper HTTP request method
             json = pReqHandler.handleRequest(pReq,pResp);
         } catch (Throwable exp) {
-            JSONObject error = requestHandler.handleThrowable(
-                    exp instanceof RuntimeMBeanException ? ((RuntimeMBeanException) exp).getTargetException() : exp);
-            json = error;
+            json = requestHandler.handleThrowable(
+                    exp instanceof RuntimeMBeanException ? ((RuntimeMBeanException) exp).getTargetException() : exp
+                    );
         } finally {
+            setCorsHeader(pReq, pResp);
+
             String callback = pReq.getParameter(ConfigKey.CALLBACK.getKeyValue());
+            String answer = json != null ?
+                    json.toJSONString() :
+                    requestHandler.handleThrowable(new Exception("Internal error while handling an exception")).toJSONString();
             if (callback != null) {
                 // Send a JSONP response
-                sendResponse(pResp, "text/javascript",callback + "(" + json.toJSONString() +  ");");
+                sendResponse(pResp, "text/javascript", callback + "(" + answer + ");");
             } else {
-                sendResponse(pResp, "text/plain",json.toJSONString());
+                sendResponse(pResp, getMimeType(pReq),answer);
             }
         }
+    }
+
+    // Set an appropriate CORS header if requested and if allowed
+    private void setCorsHeader(HttpServletRequest pReq, HttpServletResponse pResp) {
+        String origin = requestHandler.extractCorsOrigin(pReq.getHeader("Origin"));
+        if (origin != null) {
+            pResp.setHeader("Access-Control-Allow-Origin",origin);
+        }
+    }
+
+    // Extract mime type for response (if not JSONP)
+    private String getMimeType(HttpServletRequest pReq) {
+        String requestMimeType = pReq.getParameter(ConfigKey.MIME_TYPE.getKeyValue());
+        if (requestMimeType != null) {
+            return requestMimeType;
+        }
+        return configMimeType;
     }
 
     private interface ServletRequestHandler {
@@ -275,24 +319,50 @@ public class AgentServlet extends HttpServlet {
         }
     }
 
-    private Map<ConfigKey, String> servletConfigAsMap(ServletConfig pConfig) {
-        Enumeration e = pConfig.getInitParameterNames();
+    // Examines servlet config and servlet context for configurtion parameters.
+    // Configuration from the servlet context overrides servlet parameters defined in web.xn
+    Map<ConfigKey, String> configAsMap(ServletConfig pConfig) {
         Map<ConfigKey,String> ret = new HashMap<ConfigKey, String>();
+        extractConfigFromServletConfig(ret, pConfig);
+        extractConfigFromServletContext(ret,getServletContext());
+        return ret;
+    }
+
+
+    // From ServletContext ....
+    private void extractConfigFromServletContext(Map<ConfigKey, String> pRet, final ServletContext pServletContext) {
+        extractConfig(pRet, new ServletContextFacade(pServletContext));
+    }
+
+    // ... and ServletConfig
+    private void extractConfigFromServletConfig(Map<ConfigKey, String> pRet, final ServletConfig pConfig) {
+        extractConfig(pRet, new ServletConfigFacade(pConfig));
+    }
+
+    // Do the real work
+    private void extractConfig(Map<ConfigKey, String> pRet, ConfigFacade pConfig) {
+        Enumeration e = pConfig.getNames();
         while (e.hasMoreElements()) {
             String keyS = (String) e.nextElement();
             ConfigKey key = ConfigKey.getGlobalConfigKey(keyS);
             if (key != null) {
-                ret.put(key,pConfig.getInitParameter(keyS));
+                pRet.put(key,pConfig.getParameter(keyS));
             }
         }
-        return ret;
     }
 
     private void sendResponse(HttpServletResponse pResp, String pContentType, String pJsonTxt) throws IOException {
         setContentType(pResp, pContentType);
         pResp.setStatus(200);
+        setNoCacheHeaders(pResp);
         PrintWriter writer = pResp.getWriter();
         writer.write(pJsonTxt);
+    }
+
+    private void setNoCacheHeaders(HttpServletResponse pResp) {
+        pResp.setHeader("Cache-Control", "no-cache");
+        pResp.setHeader("Pragma","no-cache");
+        pResp.setHeader("Expires","-1");
     }
 
     private void setContentType(HttpServletResponse pResp, String pContentType) {
@@ -310,4 +380,62 @@ public class AgentServlet extends HttpServlet {
         }
     }
 
+    // =======================================================================================
+    // Helper classes for extracting configuration from servlet classes
+
+    /**
+     * Interface for abstracting ServletConfig and ServletContext's configuration parameters
+     */
+    private interface ConfigFacade {
+        /**
+         * Get all configuration name
+         * @return enumeration of config names
+         */
+        Enumeration getNames();
+
+        /**
+         * Get the parameter for a certain
+         * @param pKeyS string representation of the config key to fetch
+         * @return the value of the configuration parameter or <code>null</code> if no such parameter exists
+         */
+        String getParameter(String pKeyS);
+    }
+
+    // Implementation for the ServletConfig
+    private static final class ServletConfigFacade implements ConfigFacade {
+        private final ServletConfig config;
+
+        private ServletConfigFacade(ServletConfig pConfig) {
+            config = pConfig;
+        }
+
+        /** {@inheritDoc} */
+        public Enumeration getNames() {
+            return config.getInitParameterNames();
+        }
+
+        /** {@inheritDoc} */
+        public String getParameter(String pName) {
+            return config.getInitParameter(pName);
+        }
+    }
+
+    // Implementation for ServletContextFacade
+    private static final class ServletContextFacade implements ConfigFacade {
+        private final ServletContext servletContext;
+
+        private ServletContextFacade(ServletContext pServletContext) {
+            servletContext = pServletContext;
+        }
+
+        /** {@inheritDoc} */
+        public Enumeration getNames() {
+            return servletContext.getInitParameterNames();
+        }
+
+        /** {@inheritDoc} */
+        public String getParameter(String pName) {
+            return servletContext.getInitParameter(pName);
+        }
+    }
 }

@@ -2,6 +2,7 @@ package org.jolokia.it;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.*;
 
 import javax.management.*;
@@ -38,16 +39,18 @@ public class AttributeChecking implements AttributeCheckingMBean,MBeanRegistrati
     };
 
     private int intValue = 0;
-
     private File file;
     private File origFile;
     private ObjectName objectName;
     private List list;
     private Map complexMap;
     private Map map;
+    private Set set;
     private Object bean;
     private String domain;
     private Date date = new Date();
+
+
 
     public AttributeChecking(String pDomain) {
         domain = pDomain;
@@ -77,6 +80,11 @@ public class AttributeChecking implements AttributeCheckingMBean,MBeanRegistrati
             inner.add(anotherInner);
             complexMap.put("Blub",inner);
             bean = new TestBean(13,"roland");
+
+            set = new HashSet<String>();
+            set.add("jolokia");
+
+            set.add("habanero");
         } catch (IOException e) {
             throw new RuntimeException("Couldnot create temporary file name",e);
         } catch (MalformedObjectNameException e) {
@@ -170,6 +178,14 @@ public class AttributeChecking implements AttributeCheckingMBean,MBeanRegistrati
         map = pMap;
     }
 
+    public Set getSet() {
+        return set;
+    }
+
+    public void setSet(Set pSet) {
+        set = pSet;
+    }
+
     public Map getComplexNestedValue() {
         return complexMap;
     }
@@ -198,6 +214,19 @@ public class AttributeChecking implements AttributeCheckingMBean,MBeanRegistrati
         // nothing to be done
     }
 
+    public double getDoubleValueMin() {
+        return 4.208154711E-212;
+    }
+
+    public double getDoubleValueMax() {
+        return 4.208154711E+212;
+    }
+
+    public String getUtf8Content() {
+        // UTF-8: E2 98 AF, Unicode: U+262F
+        return "☯";
+    }
+
     public ObjectName preRegister(MBeanServer server, ObjectName name) throws Exception {
         return new ObjectName(domain + ":type=attribute");
     }
@@ -211,7 +240,7 @@ public class AttributeChecking implements AttributeCheckingMBean,MBeanRegistrati
     public void postDeregister() {
     }
 
-    final private class TestBean {
+    final static private class TestBean implements Serializable {
         private int value;
         private String name;
 

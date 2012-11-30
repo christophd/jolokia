@@ -2,26 +2,31 @@ mvn clean install
 
 # Check integration tests (with jmx4perl/it/it.pl)
 # Check Javascript tests
+cd client/javascript/test-app
+# Fix version number, test-app is not increased with the release plugin
+mvn clean install jetty:run-war
+firefox http://localhost:8080/
 
 # =======================================================================
 # Increase Version Numbers:
 
 vi src/docbkx/index.xml
 vi client/javascript/src/main/javascript/jolokia.js
+vi client/javascript/src/main/javascript/jolokia-cubism.js
 vi agent/core/src/main/java/org/jolokia/Version.java
 vi pom.xml
 --> <currentStableVersion>1.0.0</currentStableVersion>
     <currentSnapshotVersion>1.0.1-SNAPSHOT</currentSnapshotVersion>
+vi src/changes/changes.xml and update date
 
-
-Checking and push
+Check in and push
 
 # ========================================================================
 # Build release and deploy it on labs
 git clone git@github.com:rhuss/jolokia.git
 cd jolokia
 mvn -DdevelopmentVersion=1.0.1-SNAPSHOT -DreleaseVersion=1.0.0 -Dtag=v1.0.0 -Plabs,dist,roo release:prepare
-mvn -DdevelopmentVersion=1.0.1-SNAPSHOT -DreleaseVersion=1.0.0 -Dtag=v1.0.0 -Plans,dist,roo release:perform
+mvn -DdevelopmentVersion=1.0.1-SNAPSHOT -DreleaseVersion=1.0.0 -Dtag=v1.0.0 -Plabs,dist,roo release:perform
 
 # Copy assembly to labs:
 ssh jolokia@labs.consol.de mkdir -p www/dist/1.0.0/js
@@ -33,12 +38,19 @@ cd ../../../../..
 
 # Deploy to Sonatype staging
 cd target/checkout
-mvn -Pdist,roo deploy
+mvn -Pdist deploy
 cd ../..
 
-# Push tags and changes to github
-git push 
-git push --tags
+# Release on central maven repo
+# See: https://docs.sonatype.org/display/Repository/Sonatype+OSS+Maven+Repository+Usage+Guide
+# Staging Nexus: https://oss.sonatype.org/
+# Steps todo:
+# 1. Login into https://oss.sonatype.org/
+# 2. "Staging Repositories"
+# 3. Select staging repository
+# 4. Click "Close" in menu 
+# 5. Check the artifacts in the "closed" repository
+# 6. If ok --> click "Release" in menu
 
 # ========================================================================
 # Adapt meta data
@@ -70,6 +82,14 @@ mvn -Plabs site site:deploy
 
 # Roo-Plugin:
 # Adapt uri and version number in root-repository.xml to use a httpgpg URL instead of a relative http 
+# /home/maven-repository/www/htdocs/repository/roo-repository.xml  
 # URL
+
+# =============================================================================
+# Snapshot release
+
+# Set version number in Version.java, jolokia.js, docbkx/index.xml
+mvn -Pdist,labs deploy
+# Adapt URI and version number in root-repository.xml on labs.consol.de to us a httppgp URL
 
 

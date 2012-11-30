@@ -3,8 +3,8 @@ target
 *.ipr
 *.iws
 *~
-
-/classes/
 .project
 .settings
 .classpath
+/classes/
+.idea

@@ -56,11 +56,11 @@ public abstract class JmxRequest {
      *
      * @param pType request type
      * @param pPathParts an optional path, splitted up in parts. Not all requests do handle a path.
-     * @param pInitParams init parameters provided as query params for a GET request. They are used to
+     * @param pProcessingParams init parameters provided as query params for a GET request. They are used to
      *                    to influence the processing.
      */
-    protected JmxRequest(RequestType pType, List<String> pPathParts, Map<String, String> pInitParams) {
-        this(pType, HttpMethod.GET, pPathParts, pInitParams);
+    protected JmxRequest(RequestType pType, List<String> pPathParts, Map<String, String> pProcessingParams) {
+        this(pType, HttpMethod.GET, pPathParts, pProcessingParams);
     }
 
     /**
@@ -83,12 +83,12 @@ public abstract class JmxRequest {
     }
 
     // Common parts of both constructors
-    private JmxRequest(RequestType pType, HttpMethod pMethod, List<String> pPathParts, Map<String, String> pInitParams) {
+    private JmxRequest(RequestType pType, HttpMethod pMethod, List<String> pPathParts, Map<String, String> pProcessingParams) {
         method = pMethod;
         type = pType;
         pathParts = pPathParts;
 
-        initParameters(pInitParams);
+        initParameters(pProcessingParams);
     }
 
     /**
@@ -123,6 +123,17 @@ public abstract class JmxRequest {
         } else {
             return null;
         }
+    }
+
+    /**
+     * Get a processing configuration as a boolean value
+     *
+     * @param pConfigKey configuration to lookup
+     * @return boolean value of the configuration, the default value or false if the default value is null
+     */
+    public Boolean getProcessingConfigAsBoolean(ConfigKey pConfigKey) {
+        String booleanS = getProcessingConfig(pConfigKey);
+        return Boolean.parseBoolean(booleanS != null ? booleanS : pConfigKey.getDefaultValue());
     }
 
     /**
@@ -257,7 +268,6 @@ public abstract class JmxRequest {
             throw exception;
         }
     };
-
 
 
 }

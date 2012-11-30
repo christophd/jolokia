@@ -42,6 +42,10 @@ import static org.jolokia.util.ConfigKey.*;
  */
 public class JolokiaActivator implements BundleActivator, JolokiaContext {
 
+    // Base filter to use for filtering out HttpServices
+    public static final String HTTP_SERVICE_FILTER_BASE =
+            "(" + Constants.OBJECTCLASS + "=" + HttpService.class.getName() + ")";
+
     // Context associated with this activator
     private BundleContext bundleContext;
 
@@ -73,11 +77,13 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
 
         // Track HttpService
         if (Boolean.parseBoolean(getConfiguration(LISTEN_FOR_HTTP_SERVICE))) {
-            httpServiceTracker = new ServiceTracker(pBundleContext,HttpService.class.getName(), new HttpServiceCustomizer(pBundleContext));
+            httpServiceTracker = new ServiceTracker(pBundleContext,
+                                                    buildHttpServiceFilter(pBundleContext),
+                                                    new HttpServiceCustomizer(pBundleContext));
             httpServiceTracker.open();
 
             // Register us as JolokiaContext
-            jolokiaServiceRegistration = pBundleContext.registerService(JolokiaContext.class.getCanonicalName(),this,null);
+            jolokiaServiceRegistration = pBundleContext.registerService(JolokiaContext.class.getCanonicalName(), this, null);
         }
 
 
@@ -130,8 +136,8 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
         return getConfiguration(AGENT_CONTEXT);
     }
 
-
     // ==================================================================================
+
 
     // Customizer for registering servlet at a HttpService
     private Dictionary<String,String> getConfiguration() {
@@ -152,6 +158,18 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
             value = pKey.getDefaultValue();
         }
         return value;
+    }
+
+    private Filter buildHttpServiceFilter(BundleContext pBundleContext) {
+        String customFilter = getConfiguration(ConfigKey.HTTP_SERVICE_FILTER);
+        String filter = customFilter.trim().length() > 0 ?
+                "(&" + HTTP_SERVICE_FILTER_BASE + customFilter + ")" :
+                HTTP_SERVICE_FILTER_BASE;
+        try {
+            return pBundleContext.createFilter(filter);
+        } catch (InvalidSyntaxException e) {
+            throw new IllegalArgumentException("Unable to parse filter " + filter,e);
+        }
     }
 
     // =============================================================================

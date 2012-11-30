@@ -4,7 +4,7 @@
 
   <groupId>org.jolokia</groupId>
   <artifactId>jolokia-client-java</artifactId>
-  <version>1.0.1-SNAPSHOT</version>
+  <version>1.0.7-SNAPSHOT</version>
   <name>jolokia-client-java</name>
   <packaging>bundle</packaging>
   <description>Java client for Jolokia agents</description>
@@ -12,7 +12,7 @@
   <parent>
     <groupId>org.jolokia</groupId>
     <artifactId>jolokia-client-parent</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.7-SNAPSHOT</version>
     <relativePath>../pom.xml</relativePath>
   </parent>
 
@@ -49,6 +49,13 @@
 
     <dependency>
       <groupId>org.jolokia</groupId>
+      <artifactId>jolokia-jsr160</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.jolokia</groupId>
       <artifactId>jolokia-it-core</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
@@ -64,7 +71,6 @@
 
   <build>
     <plugins>
-
       <plugin>
         <groupId>org.apache.felix</groupId>
         <artifactId>maven-bundle-plugin</artifactId>
@@ -89,6 +95,14 @@
         </configuration>
       </plugin>
 
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <argLine>-Dcom.sun.management.jmxremote -Dcom.sun.management.jmxremote.port=45888 -Dcom.sun.management.jmxremote.authenticate=false -Dcom.sun.management.jmxremote.ssl=false -Djava.rmi.server.hostname=localhost</argLine>
+          <forkMode>once</forkMode>
+        </configuration>
+      </plugin>
     </plugins>
   </build>
 

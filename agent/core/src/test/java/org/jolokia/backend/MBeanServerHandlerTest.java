@@ -18,18 +18,16 @@ package org.jolokia.backend;
 
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
-import java.util.Set;
+import java.util.*;
 
 import javax.management.*;
 
 import org.easymock.EasyMock;
 import org.jolokia.detector.ServerHandle;
 import org.jolokia.handler.JsonRequestHandler;
-import org.jolokia.handler.RequestHandlerManager;
 import org.jolokia.request.JmxRequest;
 import org.jolokia.request.JmxRequestBuilder;
-import org.jolokia.util.LogHandler;
-import org.jolokia.util.RequestType;
+import org.jolokia.util.*;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -49,7 +47,9 @@ public class MBeanServerHandlerTest {
     @BeforeMethod
     public void setup() throws MalformedObjectNameException {
         TestDetector.reset();
-        handler = new MBeanServerHandler("qualifier=test",getEmptyLogHandler());
+        Map<ConfigKey,String> config = new HashMap<ConfigKey,String>();
+        config.put(ConfigKey.MBEAN_QUALIFIER,"qualifier=test");
+        handler = new MBeanServerHandler(config,getEmptyLogHandler());
         request = new JmxRequestBuilder(RequestType.READ,"java.lang:type=Memory").attribute("HeapMemoryUsage").build();
     }
 
@@ -130,7 +130,7 @@ public class MBeanServerHandlerTest {
     @Test
     public void mbeanRegistration() throws JMException {
         try {
-            handler.init();
+            handler.initMBean();
             ObjectName oName = new ObjectName(handler.getObjectName());
             Set<MBeanServer> servers = handler.getMBeanServers();
             boolean found = false;
@@ -152,7 +152,7 @@ public class MBeanServerHandlerTest {
         // New setup because detection happens at construction time
         setup();
         try {
-            handler.init();
+            handler.initMBean();
             ObjectName oName = new ObjectName(handler.getObjectName());
             Set<MBeanServer> servers = handler.getMBeanServers();
             boolean found = false;

@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<restrict>
+
+  <cors>
+    <allow-origin>http://bla.com</allow-origin>
+    <allow-origin>http://blub.com</allow-origin>
+    <allow-origin>*://*.consol.de</allow-origin>
+  </cors>
+</restrict>

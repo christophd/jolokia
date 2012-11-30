@@ -16,10 +16,10 @@ package org.jolokia.request;
  *  limitations under the License.
  */
 
+import java.util.*;
+
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
-
-import java.util.*;
 
 import org.jolokia.util.*;
 import org.json.simple.JSONObject;
@@ -94,6 +94,11 @@ public class JmxRequestBuilder {
         return this;
     }
 
+    public JmxRequestBuilder path(String pPath) {
+        request.put("path",pPath);
+        return this;
+    }
+
     public JmxRequestBuilder arguments(List<Object> pArguments) {
         request.put("arguments", pArguments);
         return this;
@@ -117,4 +122,5 @@ public class JmxRequestBuilder {
         }
         return ret;
     }
+
 }

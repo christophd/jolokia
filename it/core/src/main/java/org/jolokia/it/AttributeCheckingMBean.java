@@ -70,6 +70,10 @@ public interface AttributeCheckingMBean {
 
     void setMap(Map map);
 
+    Set getSet();
+
+    void setSet(Set set);
+
     Map getComplexNestedValue();
 
     void setComplexNestedValue(Map map);
@@ -83,4 +87,11 @@ public interface AttributeCheckingMBean {
     void setDate(Date pDate);
 
     void setWriteOnlyString(String pString);
+
+    double getDoubleValueMin();
+
+    double getDoubleValueMax();
+
+
+    String getUtf8Content();
 }

@@ -58,9 +58,12 @@ public class JBossDetector extends AbstractServerDetector {
             }
             return new JBossServerHandle(version,null,null,true);
         }
+        String version = getSingleStringAttribute(pMbeanServers,"jboss.as:management-root=server","releaseVersion");
+        if (version != null) {
+            return new JBossServerHandle(version,null,null,false);
+        }
         if (mBeanExists(pMbeanServers,"jboss.modules:*")) {
-            // Can please someone tell me, how to obtain the JBoss version either via JMX or via class lookup ?
-            // (or any other Means ?)
+            // It's a JBoss 7, probably a 7.0.x one ...
             return new JBossServerHandle("7",null,null,false);
         }
         return null;
@@ -93,8 +96,9 @@ public class JBossDetector extends AbstractServerDetector {
          * @param version JBoss version
          * @param agentUrl URL to the agent
          * @param extraInfo extra ifo to return
+         * @param pWorkaroundRequired if the workaround is required
          */
-        public JBossServerHandle(String version, URL agentUrl, Map<String, String> extraInfo,boolean pWorkaroundRequired) {
+        JBossServerHandle(String version, URL agentUrl, Map<String, String> extraInfo,boolean pWorkaroundRequired) {
             super("RedHat", "jboss", version, agentUrl, extraInfo);
             workaroundRequired = pWorkaroundRequired;
         }
@@ -103,26 +107,34 @@ public class JBossDetector extends AbstractServerDetector {
         @Override
         public void preDispatch(Set<MBeanServer> pMBeanServers, JmxRequest pJmxReq) {
             if (workaroundRequired && pJmxReq instanceof JmxObjectNameRequest) {
-                JmxObjectNameRequest request = (JmxObjectNameRequest) pJmxReq;
-                if (request.getObjectName() != null &&
-                        "java.lang".equals(request.getObjectName().getDomain())) {
-                    try {
-                        // invoking getMBeanInfo() works around a bug in getAttribute() that fails to
-                        // refetch the domains from the platform (JDK) bean server (e.g. for MXMBeans)
-                        for (MBeanServer s : pMBeanServers) {
-                            try {
-                                s.getMBeanInfo(request.getObjectName());
-                                return;
-                            } catch (InstanceNotFoundException exp) {
-                                // Only one server can have the name. So, this exception
-                                // is being expected to happen
-                            }
-                        }
-                    } catch (IntrospectionException e) {
-                        throw new IllegalStateException("Workaround for JBoss failed for object " + request.getObjectName() + ": " + e);
-                    } catch (ReflectionException e) {
-                        throw new IllegalStateException("Workaround for JBoss failed for object " + request.getObjectName() + ": " + e);
-                    }
+                workaroundForMXBeans(pMBeanServers, (JmxObjectNameRequest) pJmxReq);
+            }
+        }
+
+        private void workaroundForMXBeans(Set<MBeanServer> pMBeanServers, JmxObjectNameRequest pJmxReq) {
+            JmxObjectNameRequest request = (JmxObjectNameRequest) pJmxReq;
+            if (request.getObjectName() != null &&
+                "java.lang".equals(request.getObjectName().getDomain())) {
+                try {
+                    fetchMBeanInfo(pMBeanServers, request.getObjectName());
+                } catch (IntrospectionException e) {
+                    throw new IllegalStateException("Workaround for JBoss failed for object " + request.getObjectName() + ": " + e);
+                } catch (ReflectionException e) {
+                    throw new IllegalStateException("Workaround for JBoss failed for object " + request.getObjectName() + ": " + e);
+                }
+            }
+        }
+
+        private void fetchMBeanInfo(Set<MBeanServer> pMBeanServers, ObjectName pObjectName) throws IntrospectionException, ReflectionException {
+            // invoking getMBeanInfo() works around a bug in getAttribute() that fails to
+            // refetch the domains from the platform (JDK) bean server (e.g. for MXMBeans)
+            for (MBeanServer s : pMBeanServers) {
+                try {
+                    s.getMBeanInfo(pObjectName);
+                    return;
+                } catch (InstanceNotFoundException exp) {
+                        // Only one server can have the name. So, this exception
+                    // is being expected to happen
                 }
             }
         }

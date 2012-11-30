@@ -52,6 +52,19 @@ public class BackendManagerTest implements LogHandler {
         backendManager.destroy();
     }
 
+    @Test
+    public void lazyInit() throws MalformedObjectNameException, InstanceNotFoundException, IOException, ReflectionException, AttributeNotFoundException, MBeanException {
+        Map config = new HashMap();
+        BackendManager backendManager = new BackendManager(config, this, null, true /* Lazy Init */ );
+
+        JmxRequest req = new JmxRequestBuilder(RequestType.READ,"java.lang:type=Memory")
+                .attribute("HeapMemoryUsage")
+                .build();
+        JSONObject ret = backendManager.handleRequest(req);
+        assertTrue((Long) ((Map) ret.get("value")).get("used") > 0);
+        backendManager.destroy();
+
+    }
 
     @Test
     public void requestDispatcher() throws MalformedObjectNameException, InstanceNotFoundException, IOException, ReflectionException, AttributeNotFoundException, MBeanException {
@@ -115,6 +128,13 @@ public class BackendManagerTest implements LogHandler {
     public void remoteAccessCheck() {
         BackendManager backendManager = new BackendManager(new HashMap<ConfigKey, String>(),this);
         assertTrue(backendManager.isRemoteAccessAllowed("localhost","127.0.0.1"));
+        backendManager.destroy();
+    }
+
+    @Test
+    public void corsAccessCheck() {
+        BackendManager backendManager = new BackendManager(new HashMap<ConfigKey, String>(),this);
+        assertTrue(backendManager.isCorsAccessAllowed("http://bla.com"));
         backendManager.destroy();
     }
 

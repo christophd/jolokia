@@ -78,6 +78,14 @@ public enum ConfigKey {
     IGNORE_ERRORS("ignoreErrors", false, true),
 
     /**
+     * Whether  property keys of ObjectNames should be ordered in the canonical way or in the way that they
+     * are created.
+     * The allowed values are either "true" in which case the canonical key order (== alphabetical
+     * sorted) is used or "false" for getting the keys as registered. Default is "true"
+     */
+    CANONICAL_NAMING("canonicalNaming",true,true,"true"),
+
+    /**
      * Optional domain name for registering own MBeans
      */
     MBEAN_QUALIFIER("mbeanQualifier", true, false),
@@ -88,6 +96,14 @@ public enum ConfigKey {
      * contain a Javascript function to be called.
      */
     CALLBACK("callback", false, true),
+
+    /**
+     * Mime Type to use for the response value. By default, this is
+     * <code>text/plain</code>, but it could be useful to return
+     * <code>application/json</code>, too. A request parameter overrides a global
+     * configuration.
+     */
+    MIME_TYPE("mimeType", true, true,"text/plain"),
 
     // ================================================================================
     // Configuration relevant for OSGI container
@@ -119,7 +135,35 @@ public enum ConfigKey {
      * an agent servlet. Set this to false if you want to instantiate the
      * servlet on your own (either declaratively within another war or programmatically)
      */
-    LISTEN_FOR_HTTP_SERVICE("listenForHttpService",true,false,"true");
+    LISTEN_FOR_HTTP_SERVICE("listenForHttpService",true,false,"true"),
+
+    /**
+     * By default, the OSGi Agent will bind to all HttpService implementations.
+     * Set this to control which of the implementations of HttpService are bound to.
+     * <p>The syntax is that of the standard OSGi Filter.</p>
+     * <pre><code>
+     *     (VirtualServer=__asadmin)  - Glassfish 3+ administration server
+     * </code></pre>
+     * <p>Note this will be combined with the objectClass filter for HttpService with
+     * the and (&amp;) operator.</p>
+     */
+    HTTP_SERVICE_FILTER("httpServiceFilter",true,false,""),
+
+    /**
+     * Extra options passed to a server handle after it has been detected. The value
+     * must be a JSON object with the product name as key and another JSON object as value containing
+     * the specific handle configuration.
+     *
+     * E.g.
+     *
+     * <pre>
+     *     {
+     *         "glassfish" : { "bootAmx" : true},
+     *         "jboss" : { "disableWorkaround" : true}
+     *     }
+     * </pre>
+     */
+    DETECTOR_OPTIONS("detectorOptions",true, false);
 
     private String key;
     private String defaultValue;

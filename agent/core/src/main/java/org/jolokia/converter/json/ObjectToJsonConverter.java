@@ -82,9 +82,10 @@ public final class ObjectToJsonConverter {
         // Collection handlers
         handlers.add(new ListExtractor());
         handlers.add(new MapExtractor());
+        handlers.add(new CollectionExtractor());
 
         // Special, well known objects
-        addSimplifiers(handlers,pSimplifyHandlers);
+        addSimplifiers(handlers, pSimplifyHandlers);
 
         // Special date handling
         handlers.add(new DateExtractor());
@@ -327,12 +328,14 @@ public final class ObjectToJsonConverter {
 
 
     private String checkForLimits(Object pValue, ObjectSerializationContext pStackContext) {
-        if (pStackContext.exceededMaxDepth()) {
-            // We use its string representation
-            return pValue.toString();
-        }
-        if (pValue != null && pStackContext.alreadyVisited(pValue)) {
-            return "[Reference " + pValue.getClass().getName() + "@" + Integer.toHexString(pValue.hashCode()) + "]";
+        if (pValue != null) {
+            if (pStackContext.exceededMaxDepth()) {
+                // We use its string representation.
+                return pValue.toString();
+            }
+            if (pStackContext.alreadyVisited(pValue)) {
+                return "[Reference " + pValue.getClass().getName() + "@" + Integer.toHexString(pValue.hashCode()) + "]";
+            }
         }
         if (pStackContext.exceededMaxObjects()) {
             return "[Object limit exceeded]";

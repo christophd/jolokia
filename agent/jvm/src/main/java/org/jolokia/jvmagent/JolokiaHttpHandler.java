@@ -1,8 +1,6 @@
 package org.jolokia.jvmagent;
 
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.URI;
 import java.util.Map;
@@ -12,17 +10,13 @@ import java.util.regex.Pattern;
 import javax.management.MalformedObjectNameException;
 import javax.management.RuntimeMBeanException;
 
-import com.sun.net.httpserver.Headers;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
+import com.sun.net.httpserver.*;
 import org.jolokia.backend.BackendManager;
-import org.jolokia.util.ConfigKey;
-import org.jolokia.restrictor.RestrictorFactory;
 import org.jolokia.http.HttpRequestHandler;
 import org.jolokia.restrictor.*;
+import org.jolokia.util.ConfigKey;
 import org.jolokia.util.LogHandler;
 import org.json.simple.JSONAware;
-import org.json.simple.JSONObject;
 
 /*
  *  Copyright 2009-2010 Roland Huss
@@ -81,9 +75,10 @@ public class JolokiaHttpHandler implements HttpHandler, LogHandler {
 
     /**
      * Start the handler
+     * @param pLazy whether initialisation should be done lazy.
      */
-    public void start() {
-        backendManager = new BackendManager(configuration,this, createRestrictor(configuration));
+    public void start(boolean pLazy) {
+        backendManager = new BackendManager(configuration,this, createRestrictor(configuration),pLazy);
         requestHandler = new HttpRequestHandler(backendManager,this);
     }
 
@@ -121,9 +116,13 @@ public class JolokiaHttpHandler implements HttpHandler, LogHandler {
 
             // Dispatch for the proper HTTP request method
             if ("GET".equalsIgnoreCase(method)) {
+                setHeaders(pExchange);
                 json = executeGetRequest(parsedUri);
             } else if ("POST".equalsIgnoreCase(method)) {
+                setHeaders(pExchange);
                 json = executePostRequest(pExchange, parsedUri);
+            } else if ("OPTIONS".equalsIgnoreCase(method)) {
+                performCorsPreflightCheck(pExchange);
             } else {
                 throw new IllegalArgumentException("HTTP Method " + method + " is not supported.");
             }
@@ -131,14 +130,12 @@ public class JolokiaHttpHandler implements HttpHandler, LogHandler {
                 backendManager.info("Response: " + json);
             }
         } catch (Throwable exp) {
-            JSONObject error = requestHandler.handleThrowable(
+            json = requestHandler.handleThrowable(
                     exp instanceof RuntimeMBeanException ? ((RuntimeMBeanException) exp).getTargetException() : exp);
-            json = error;
         } finally {
-            sendResponse(pExchange,parsedUri, json.toJSONString());
+            sendResponse(pExchange,parsedUri,json);
         }
     }
-
 
 
     private Restrictor createRestrictor(Map<ConfigKey, String> pConfig) {
@@ -178,24 +175,67 @@ public class JolokiaHttpHandler implements HttpHandler, LogHandler {
         return requestHandler.handlePostRequest(pUri.toString(),is, encoding, pUri.getParameterMap());
     }
 
+    private void performCorsPreflightCheck(HttpExchange pExchange) {
+        Headers requestHeaders = pExchange.getRequestHeaders();
+        Map<String,String> respHeaders =
+                requestHandler.handleCorsPreflightRequest(requestHeaders.getFirst("Origin"),
+                                                          requestHeaders.getFirst("Access-Control-Request-Headers"));
+        Headers responseHeaders = pExchange.getResponseHeaders();
+        for (Map.Entry<String,String> entry : respHeaders.entrySet()) {
+            responseHeaders.set(entry.getKey(), entry.getValue());
+        }
+    }
 
-    private void sendResponse(HttpExchange pExchange, ParsedUri pParsedUri, String pJson) throws IOException {
+    private void setHeaders(HttpExchange pExchange) {
+        String origin = requestHandler.extractCorsOrigin(pExchange.getRequestHeaders().getFirst("Origin"));
+        Headers headers = pExchange.getResponseHeaders();
+        if (origin != null) {
+            headers.set("Access-Control-Allow-Origin",origin);
+        }
+
+        // Avoid caching at all costs
+        headers.set("Cache-Control", "no-cache");
+        headers.set("Pragma","no-cache");
+        headers.set("Expires","-1");
+    }
+
+    private void sendResponse(HttpExchange pExchange, ParsedUri pParsedUri, JSONAware pJson) throws IOException {
         OutputStream out = null;
-        String callback = pParsedUri.getParameter(ConfigKey.CALLBACK.getKeyValue());
         try {
             Headers headers = pExchange.getResponseHeaders();
-            headers.set("Content-Type",(callback == null ? "text/plain" : "text/javascript") + "; charset=utf-8");
-            String content = callback == null ? pJson : callback + "(" + pJson + ");";
-            byte[] response = content.getBytes();
-            pExchange.sendResponseHeaders(200,response.length);
-            out = pExchange.getResponseBody();
-            out.write(response);
+            if (pJson != null) {
+                headers.set("Content-Type", getMimeType(pParsedUri) + "; charset=utf-8");
+                String json = pJson.toJSONString();
+                String callback = pParsedUri.getParameter(ConfigKey.CALLBACK.getKeyValue());
+                String content = callback == null ? json : callback + "(" + json + ");";
+                byte[] response = content.getBytes();
+                pExchange.sendResponseHeaders(200,response.length);
+                out = pExchange.getResponseBody();
+                out.write(response);
+            } else {
+                headers.set("Content-Type", "text/plain");
+                pExchange.sendResponseHeaders(200,-1);
+            }
         } finally {
             if (out != null) {
                 // Always close in order to finish the request.
                 // Otherwise the thread blocks.
                 out.close();
             }
+        }
+    }
+
+    // Get the proper mime type according to configuration
+    private String getMimeType(ParsedUri pParsedUri) {
+        if (pParsedUri.getParameter(ConfigKey.CALLBACK.getKeyValue()) != null) {
+            return "text/javascript";
+        } else {
+            String mimeType = pParsedUri.getParameter(ConfigKey.MIME_TYPE.getKeyValue());
+            if (mimeType != null) {
+                return mimeType;
+            }
+            mimeType = configuration.get(ConfigKey.MIME_TYPE);
+            return mimeType != null ? mimeType : ConfigKey.MIME_TYPE.getDefaultValue();
         }
     }
 

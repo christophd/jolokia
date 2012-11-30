@@ -6,7 +6,7 @@
   <skin> 
     <groupId>org.jolokia</groupId> 
     <artifactId>jolokia-site-skin</artifactId>
-    <version>1.0.1-SNAPSHOT</version>
+    <version>1.0.7-SNAPSHOT</version>
   </skin>  
   
   <bannerLeft>
@@ -39,6 +39,7 @@
       <item name="Overview" href="documentation.html"/>
       <item name="Tutorial" href="tutorial.html"/>
       <item name="Reference Manual" href="reference/html/index.html"/>
+      <item name="Talks and Screencasts" href="talks.html"/>
     </menu>
 
     <menu name="Agents" inherit="top">

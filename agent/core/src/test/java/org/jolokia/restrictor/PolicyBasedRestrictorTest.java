@@ -1,4 +1,4 @@
-package org.jolokia.config;
+package org.jolokia.restrictor;
 
 /*
  *  Copyright 2009-2010 Roland Huss
@@ -16,19 +16,18 @@ package org.jolokia.config;
  *  limitations under the License.
  */
 
+import java.io.InputStream;
+
+import javax.management.MalformedObjectNameException;
+import javax.management.ObjectName;
+
 import org.jolokia.util.HttpMethod;
-import org.jolokia.restrictor.PolicyRestrictor;
 import org.jolokia.util.RequestType;
 import org.testng.annotations.Test;
 
-import java.io.InputStream;
-
-import javax.management.ObjectName;
-import javax.management.MalformedObjectNameException;
-
 import static org.testng.Assert.*;
-import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertTrue;
 
 /**
  * @author roland
@@ -69,8 +68,8 @@ public class PolicyBasedRestrictorTest {
         for (String check[] : ips) {
             String res = restrictor.isRemoteAccessAllowed(check[0]) ? "true" : "false";
             assertEquals("Ip " + check[0] + " is " +
-                    (check[1].equals("false") ? "not " : "") +
-                    "allowed",check[1],res);
+                         (check[1].equals("false") ? "not " : "") +
+                         "allowed",check[1],res);
         }
     }
 
@@ -122,16 +121,16 @@ public class PolicyBasedRestrictorTest {
     public void allow() throws MalformedObjectNameException {
         InputStream is = getClass().getResourceAsStream("/access-sample5.xml");
         PolicyRestrictor restrictor = new PolicyRestrictor(is);
-        assertTrue(restrictor.isAttributeReadAllowed(new ObjectName("java.lang:type=Memory"),"HeapMemoryUsage"));
-        assertTrue(restrictor.isAttributeWriteAllowed(new ObjectName("java.lang:type=Memory"),"HeapMemoryUsage"));
-        assertTrue(restrictor.isAttributeReadAllowed(new ObjectName("java.lang:type=Memory"),"NonHeapMemoryUsage"));
-        assertFalse(restrictor.isAttributeWriteAllowed(new ObjectName("java.lang:type=Memory"),"NonHeapMemoryUsage"));
-        assertFalse(restrictor.isAttributeReadAllowed(new ObjectName("java.lang:type=Memory"),"BlaUsage"));
+        assertTrue(restrictor.isAttributeReadAllowed(new ObjectName("java.lang:type=Memory"), "HeapMemoryUsage"));
+        assertTrue(restrictor.isAttributeWriteAllowed(new ObjectName("java.lang:type=Memory"), "HeapMemoryUsage"));
+        assertTrue(restrictor.isAttributeReadAllowed(new ObjectName("java.lang:type=Memory"), "NonHeapMemoryUsage"));
+        assertFalse(restrictor.isAttributeWriteAllowed(new ObjectName("java.lang:type=Memory"), "NonHeapMemoryUsage"));
+        assertFalse(restrictor.isAttributeReadAllowed(new ObjectName("java.lang:type=Memory"), "BlaUsage"));
 
-        assertTrue(restrictor.isAttributeReadAllowed(new ObjectName("jolokia:type=Config"),"Debug"));
+        assertTrue(restrictor.isAttributeReadAllowed(new ObjectName("jolokia:type=Config"), "Debug"));
 
-        assertTrue(restrictor.isOperationAllowed(new ObjectName("java.lang:type=Blubber,name=x"),"gc"));
-        assertFalse(restrictor.isOperationAllowed(new ObjectName("java.lang:type=Blubber,name=x"),"xavier"));
+        assertTrue(restrictor.isOperationAllowed(new ObjectName("java.lang:type=Blubber,name=x"), "gc"));
+        assertFalse(restrictor.isOperationAllowed(new ObjectName("java.lang:type=Blubber,name=x"), "xavier"));
     }
 
     @Test
@@ -189,6 +188,15 @@ public class PolicyBasedRestrictorTest {
 
     }
 
+
+    @Test
+    public void httpMethod() {
+        InputStream is = getClass().getResourceAsStream("/method.xml");
+        PolicyRestrictor res = new PolicyRestrictor(is);
+        assertTrue(res.isHttpMethodAllowed(HttpMethod.GET));
+        assertTrue(res.isHttpMethodAllowed(HttpMethod.POST));
+    }
+
     @Test
     public void illegalHttpMethod() {
         InputStream is = getClass().getResourceAsStream("/illegal5.xml");
@@ -196,7 +204,7 @@ public class PolicyBasedRestrictorTest {
             new PolicyRestrictor(is);
             fail();
         } catch (SecurityException exp) {
-            assertTrue(exp.getMessage().contains("bla"));
+            assertTrue(exp.getMessage().contains("BLA"));
         }
     }
 
@@ -210,6 +218,46 @@ public class PolicyBasedRestrictorTest {
             assertTrue(exp.getMessage().contains("method"));
             assertTrue(exp.getMessage().contains("blubber"));
         }
+    }
+
+    @Test
+    public void cors() {
+        InputStream is = getClass().getResourceAsStream("/allow-origin1.xml");
+        PolicyRestrictor restrictor = new PolicyRestrictor(is);
+
+        assertTrue(restrictor.isCorsAccessAllowed("http://bla.com"));
+        assertFalse(restrictor.isCorsAccessAllowed("http://www.jolokia.org"));
+        assertTrue(restrictor.isCorsAccessAllowed("https://www.consol.de"));
+    }
+
+    @Test
+    public void corsWildCard() {
+        InputStream is = getClass().getResourceAsStream("/allow-origin2.xml");
+        PolicyRestrictor restrictor = new PolicyRestrictor(is);
+
+        assertTrue(restrictor.isCorsAccessAllowed("http://bla.com"));
+        assertTrue(restrictor.isCorsAccessAllowed("http://www.jolokia.org"));
+        assertTrue(restrictor.isCorsAccessAllowed("http://www.consol.de"));
+    }
+
+    @Test
+    public void corsEmpty() {
+        InputStream is = getClass().getResourceAsStream("/allow-origin3.xml");
+        PolicyRestrictor restrictor = new PolicyRestrictor(is);
+
+        assertTrue(restrictor.isCorsAccessAllowed("http://bla.com"));
+        assertTrue(restrictor.isCorsAccessAllowed("http://www.jolokia.org"));
+        assertTrue(restrictor.isCorsAccessAllowed("http://www.consol.de"));
+    }
+
+    @Test
+    public void corsNoTags() {
+        InputStream is = getClass().getResourceAsStream("/access-sample1.xml");
+        PolicyRestrictor restrictor = new PolicyRestrictor(is);
+
+        assertTrue(restrictor.isCorsAccessAllowed("http://bla.com"));
+        assertTrue(restrictor.isCorsAccessAllowed("http://www.jolokia.org"));
+        assertTrue(restrictor.isCorsAccessAllowed("https://www.consol.de"));
     }
 
 

@@ -34,7 +34,7 @@
           make Jolokia unique for JMX remoting.
         </li>
         <li>          
-          The <a href="documentation.html">Documentation</a> includes
+          The <a href="documentation.html">documentation</a> includes
           a <a href="tutorial.html">tutorial</a> and a <a
           href="reference/html/index.html">reference manual</a>.
         </li>
@@ -51,167 +51,211 @@
       </ul>
     </subsection>
     <section name="News">
-      <subsection name="1.0.0">
-        <div class="news-date">2011-10-03</div>
+      <subsection name="1.0.6 cosmetics">
+        <div class="news-date">2012-11-23</div>
         <p>
-          It's time to celebrate: After two and half years of hard
-          work, Jmx4Perl and Jolokia have been all wrapped up for
-          their 1.0 releases.
+          Although it has been quite calm in Jolokia land for some
+          months, there is quite some momentum around Jolokia. This
+          minor release brings some cosmetic changes, mostly for
+          tuning the ordering within MBeans names and some JavaScript
+          fixes. More on this in the <a
+          href="changes-report.html">changelog</a>.
         </p>
         <p>
-          The last month the focus was on hardening this first
-          official release. This effort is backed up by these numbers:
+          Some other tidbits:
         </p>
         <ul>
-          <li>
-            216 integration tests which has been successfully run on
-            <a href="agent.html">38</a> different platforms.
-          </li>
-          <li>
-            a unit test coverarge of 82.7% with 404 Java and 194
-            Javascript unit tests.  
-          </li>
-          <li>
-            a <a
-            href="http://docs.codehaus.org/display/SONAR/Technical+Debt+Calculation">technical
-            debt</a> of 2% (or 8 man day) as measured by <a
-            href="http://www.sonarsource.org">Sonar</a>
-          </li>
-          <li>
-            other Sonar metrics inlcuding:
-            <ul>
-              <li>
-                100% rule compliance
-              </li>
-              <li>
-                0% package tangle index
-              </li>
-              <li>34.1% comments and 100% documented API</li>
-              <li>94.6% total quality</li>
-            </ul>
-          </li>
+          <li>The new <a href="talks.html">Talks and Screencast</a> section collects some fancy multimedia introducing Jolokia</li>
+          <li>I'm going to talk about Jolokia at <a href="http://www.jayday.de/?lang=en">jayday 2012</a>, a brand new, low cost
+          conference in Munich on 3th December 2012. Hopefully there will be some brand new stuff to show, too.</li>
+          <li>Some completely irrelevant stuff: Jolokia T-Shirts can be found in the <a href="http://jolokia.spreadshirt.de/">Jolokia Shop</a>
+            The shop was too easy to setup for not doing it ;-) And they look freaking hot .... </li>
+        </ul>
+      </subsection>
+      <subsection name="Cubism support in 1.0.5">
+        <div class="news-date">2012-07-22</div>
+        <p>
+          Jolokia 1.0.5 has been released. Beside minor <a
+          href="changes-report.html">improvements and bug fixes</a>,
+          one great new feature has been introduced: As already
+          mentioned Jolokia has now support for <a
+          href="http://square.github.com/cubism/">Cubism</a>, a fine
+          time series charting library based on <a
+          href="http://d3js.org/">d3.js</a>. Cubism provides
+          support for an innovative charting type, the <a
+          href="http://vis.berkeley.edu/papers/horizon/">horizon
+          charts</a>:
+        </p>
+        <div>
+          <img src="images/jolokia_cubism_demo_2.png"/><br/>
+          <img src="images/jolokia_cubism_demo_1.png"/>
+        </div>
+        <p>
+          A very cool live demo where a Jolokia JavaScript client
+          fetches live data from our servers and plot it with Cubism
+          can be found on this <a
+          href="client/javascript-cubism.html">demo page</a>.
+          The documentation can be found in the <a href="reference/html/clients.html#js-cubism">reference manual</a>.
+        </p>
+        <p>
+          Jolokia uses also a <a
+          href="http://travis-ci.org/#!/rhuss/jolokia">Travis</a>
+          build in addition to our own <a
+          href="http://labs.consol.de/hudson">CI Server</a>. (Did I
+          mentioned already, that we have a quite I high <a
+          href="http://labs.consol.de/sonar/dashboard/index/org.jolokia:jolokia">Sonar</a> score
+          ?). Travis is a quite nice supplement to Github, and brings CI
+          testing to a higher level.
+        </p>
+        <p>
+          That's it for now. The next months of my open-source work
+          will be spent now on <a
+          href="https://github.com/rhuss/aji">Ají</a>, Jolokia's new
+          fancy sister. Sorry for pushing thinks like notifications
+          down the Jonlokia back-log, but it's not forgotten.
+        </p>
+      </subsection>
+      <subsection name="1.0.4 introduces a Javascript request scheduler">
+        <div class="news-date">2012-06-07</div>
+        <p>
+          Beside some <a href="changes-report.html">bug fixes</a> two
+          new features are included in this new release:
+        </p>
+        <p>
+          Jolokia's Javascript library has now a scheduler for
+          periodically querying the agent. Requests can be registered
+          at the agent and all registered requests are sent at once in
+          a single bulk request periodically. This is especially
+          useful when building up dashboard like web pages with
+          multiple charts.
+        </p>
+        <p>
+          The folowing example registers two requests which are called
+          every second. The <a
+          href="reference/html/clients.html#js-poller">reference
+          documentation</a> has all the details.
+        </p>
+        <pre class="prettyprint lang-javascript">var jolokia = new Jolokia("http://localhost:8080/jolokia");
+
+// Register request along with callback printing out 
+// the heap memory usage
+jolokia.register(function(resp) {
+   console.log("Memory: " + resp.value);
+},{ 
+    type:"read", 
+    mbean:"java.lang:type=Memory", 
+    attribute:"HeapMemoryUsage", 
+    path:"used"
+});
+
+// Start the scheduler for calling the request every second
+jolokia.start(1000);</pre>
+        <p>
+          The scheduler is used by the new Jolokia-<a
+          href="http://square.github.com/cubism/">Cubism</a>
+          integration for plotting real time JMX data. Please have a
+          look at the <a href="client/javascript-cubism.html">demo
+          page</a> for more information about using Jolokia together
+          with Cubism.
+        </p>
+        <p>
+          On the agent side detectors now support custom options. The
+          first option available is for the Glassfish detector to
+          prevent booting of the AMX subsystem, which registers the
+          most interesting MBeans. AMX is booted now by default on the
+          first request when running in Glassfish. For more
+          information, please refer to the <a
+          href="reference/html/agents.html#war-agent-installation">WAR
+          configuration options</a> in the reference documentation.
+        </p>
+        <p>
+          <a href="https://github.com/rhuss/aji">Ají</a> moves on,
+          too, although slower than expected. The main focus of the
+          next months will to be bring that Javascript JMX application
+          on and out. Stay tuned ...
+        </p>
+      </subsection>
+      <subsection name="1.0.3 with CORS support">
+        <div class="news-date">2012-04-11</div>
+        <p>
+          This minor release adds cross-origin resource sharing (<a href="http://www.w3.org/TR/cors/">CORS</a>)
+          support to all Jolokia agents. Cross domain access can be
+          easily restricted with Jolokia's <a
+                href="features/security.html">security setup</a>. The <a
+                href="client/javascript.html">Javascript</a> library already
+          support CORS for most browsers out of the box, for IE8 and
+          larger some special setup is still required. Transparent
+          CORS client support for all browsers will be added to the
+          Jolokia Javascript client in one of the next releases.
+        </p>
+        <p>
+          In addition the following new features were added:
+        </p>
+        <ul>
+          <li><a
+                  href="https://github.com/amdjs/amdjs-api/wiki/AMD">AMD</a>
+            support for jolokia.js and jolokia-simple.js</li>
+          <li>Time based eviction of historical values remembered on
+            the client side, in addition to count based eviction</li>
+          <li>New configuration option <code>httpServiceFilter</code>
+            for the OSGi agent for selection of a specific HttpService
+            to bind to.</li>
+          <li>None-caching headers added to the response</li>
         </ul>
         <p>
-          The detailed code metrics can be examined on <a href="http://labs.consol.de/sonar/dashboard/index/org.jolokia:jolokia">Jolokia's
-          Sonar Dashboard</a> and it's evolution over time is
-          documented in the <a href="http://labs.consol.de/sonar/timemachine/index/946">time machine</a>
+          All thdeses changes plus the bug fixes are listed in the <a
+                href="changes-report.html">change log</a>.
         </p>
         <p>
-          I'm very confident that this 1.0.0 version is rock solid
-          and production ready.
+          Starting with this release, bug tracking and release planning
+          switches over to Jolokia's <a
+                href="http://jolokia.jira.com">JIRA</a> instance, kindly
+          donated by the fine folks from <a
+                href="http://www.atlassian.com">Atlassian</a>.
         </p>
         <p>
-          There has been a minor protocol change for the way how
-          Jolokia does URL escaping for slashes within GET requests,
-          though. This scheme is not backwards compatible to the
-          pre-1.0 protocol (which used a different, more complicated
-          algorithm). Clients need to be updated, which has been
-          already done for Jmx4Perl 1.00 and of course Jolokia 1.0.0's
-          Javascript und Java client libraries.  Since Jolokia is out
-          of beta now such kind of change won't happen in this ad-hoc
-          manner in the future, promised.
-        </p>
-        <p>
-          All changes for this release are summarized as always in the 
-          <a href="changes-report.html">change log</a>. 
+          Also, there has been some (minor) progress with the new kid in
+          the Chili garden, <a
+                href="https://github.com/rhuss/aji">Ají</a>, a Javascript
+          single-page-application with an MBeanBrowser and a
+          Dashboard. I'm still looking for helping hands, there is
+          quite a lot to do here ;-)
         </p>
       </subsection>
-      <subsection name="Jolokia and Jmx4Perl on tour">
-        <div class="news-date">2011-08-29</div>
-        <div style="margin-left: 30px; float:right">
-          <a style="background: none;" href="http://www.devoxx.com"><img src="images/banner/devoxx.png" alt="Devoxx"/></a>
-        </div>        
+      <subsection name="1.0.2 released">
+        <div class="news-date">2012-01-06</div>
         <p>
-          <em>Meet us in Paradise</em> at Devoxx 2011 ! "<a
-          href="http://www.devoxx.com/display/DV11/Jolokia+-+JMX+on+Capsaicin">Jolokia
-          - JMX on Capsaicin</a>" will be presented on November 14th
-          2011 in Antwerp, Belgium. I'm really excited to have the
-          chance to bring some chili pepper to this superb premium
-          conference which I greatly enjoyed as visitor in the
-          past. 30 minutes are surely not long enough for getting in
-          every feature, so please le me know whether you have a
-          favourite one.
+          The first release of this year brings some updates and minor features:
         </p>
-        <div style="clear: both"></div>
-        <div style="margin-left: 30px; margin-top: 20px; float:right">
-          <a style="background: none;" href="http://www.netways.de/en/osmc/y2011/"><img src="images/banner/osmc_2011.png" alt="OSMC 2011"/></a>
-        </div>        
+        <ul>
+          <li>The Java client library supports now using a JSR-160
+          proxy, too. The <a
+          href="reference/html/clients.html#client-java">reference
+          manual</a> tells you how to 
+          provide a proxy either as a default to a
+          <code>J4pClient</code> or per request.</li>
+
+          <li>A configuration parameter <code>mimeType</code> can be
+          either used in the global configuration or as request
+          parameter in order to explicitely set the mime type of the
+          returned JSON answer. By default this is <code>text/plain</code>,
+          but for some environments a mime type
+          <code>application/json</code> might be more
+          appropriate.</li>
+
+          <li>In case of an error on the server side, the Jolokia request
+          leading to this error is included into the response the same
+          way as it is done for successful responses.</li>
+          
+          <li>The Roo plugin has been updated for Roo 1.2 and the
+          Jolokia Javascript library has been tested with the latest
+          jQuery version 1.7.1</li>
+        </ul>
         <p>
-          The second conference where Jolokia will play its role this
-          autumn is at the Open Source Monitoring Conference "<a
-          href="http://www.netways.de/en/osmc/y2011/programm/v/nagios_java_monitoring_mit_jmx4perl_und_jolokia/">Nagios
-          Java monitoring with Jmx4Perl and Jolokia</a>" in Nuremberg
-          on November 30th 2011. It's a quite different talk with
-          focus on Jmx4Perl, discovery of relevant monitoring metrics
-          and it's configuration in a Nagios environment. Not much
-          Java here, but tooling en masse. I'm really looking forward
-          to this home play, too.
-        </p>
-        <div style="clear: both;"></div>
-        <p>
-          If you intend to participate in one of these conferences and
-          would like some discussion about Jolokia, Jmx4Perl, JMX,
-          Chili pepper growing, the world, you can contact me on various
-          channels. Jolokia can be found at twitter at <code><a
-          href="http://twitter.com/jolokia_jmx">@jolokia_jmx</a></code>,
-          the <a href="forum.html">forum</a> or on IRC at the Freenode
-          channel <code>#jolokia</code>. For a simple chat you can use
-          also the new <a href="irc.html">webchat</a> on this site. I
-          would really like to hear from you !
-        </p>
-      </subsection>
-      <subsection name="Summer break is over and 0.95 is here">
-        <div class="news-date">2011-08-21</div>        
-        <p>
-          The summer break is over and Jolokia is one step closer to
-          1.0. Germans might reasonably argue, 'ehm, what summer do
-          you talk about ?' but at least 0.95 is a fact and introduces
-          two new features. Very cool features, IMO.
-        </p>
-        <p>
-          The Jolokia <a href="agent/jvm.html">JVM Agent</a> is
-          now able to use the <a
-          href="http://download.oracle.com/javase/6/docs/jdk/api/attach/spec/com/sun/tools/attach/VirtualMachine.html">Java
-          Attach API</a> so that it is possible to dynamically attach
-          and detach a Jolokia agent to a running Java process, much
-          like <a
-          href="http://download.oracle.com/javase/6/docs/technotes/guides/management/jconsole.html">jconsole</a>. It
-          is a really exciting and powerful feature, because it allows
-          for HTTP/JSON access without (permanently) instrumenting a
-          Java process by deploying an agent or modifying startup
-          options, which is a major obstacle for quite some users. The
-          nice advantage over <code>jconsole</code> is that it
-          attaches <em>locally</em> but export the data
-          <em>remotely</em>. Perfect for headless server
-          installations.
-        </p>
-        <p>
-          The second addition is the support for upstream
-          serialization of all <a
-          href="http://download.oracle.com/javase/6/docs/api/javax/management/openmbean/OpenType.html">OpenType</a>
-          types so that JMX operations and write requests can be used
-          with <code>OpenTypes</code>, too. For <a
-          href="http://download.oracle.com/javase/6/docs/api/javax/management/MXBean.html">MXBeans</a>
-          special support has been added, so that e.g. a JSON map gets
-          properly translated to an MXBean's Map attribute (which in
-          between gets translated to a <a
-          href="http://download.oracle.com/javase/6/docs/api/javax/management/openmbean/TabularData.html">TabularData</a>
-          with a fixed format). Since MXBeans are so easy to declare,
-          implement and register, this missing piece really adds to
-          our <em>JMX on Capsaicin</em> mantra.
-        </p>
-        <p>
-          Both features arrived via GitHub <a
-          href="https://github.com/rhuss/jolokia/pulls">pull
-          requests</a> and are proofs for the relevance of the social
-          coding model introduced by GitHub. Big acknowlegdments go
-          out to <a href="https://github.com/asssaf">Assaf Berg</a>
-          and <a href="https://github.com/GregBowyer">Greg Bowyer</a>
-          for providing pull requests which lead to these features.
-        </p>
-        <p>
-          This and all previous changes can be found in the <a
-          href="changes-report.html">change log</a>. 
+          The complete changes are listed in the <a
+          href="changes-report.html">change log</a>. BTW, Jolokia is
+          available now on <a href="http://search.maven.org">Maven
+          central</a>, too. 
         </p>
       </subsection>
   </section>

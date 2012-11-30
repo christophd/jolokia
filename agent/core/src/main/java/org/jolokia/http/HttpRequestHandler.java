@@ -1,8 +1,7 @@
 package org.jolokia.http;
 
 import java.io.*;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 import javax.management.*;
 
@@ -13,6 +12,8 @@ import org.jolokia.util.LogHandler;
 import org.json.simple.*;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
+
+//import org.json.simple.parser.JSONParser;
 
 /*
  *  Copyright 2009-2010 Roland Huss
@@ -119,6 +120,32 @@ public class HttpRequestHandler {
         }
     }
 
+    /**
+     * Handling an option request which is used for preflight checks before a CORS based browser request is
+     * sent (for certain circumstances).
+     *
+     * See the <a href="http://www.w3.org/TR/cors/">CORS specification</a>
+     * (section 'preflight checks') for more details.
+     *
+     * @param pOrigin the origin to check. If <code>null</code>, no headers are returned
+     * @param pRequestHeaders extra headers to check against
+     * @return headers to set
+     */
+    public Map<String, String> handleCorsPreflightRequest(String pOrigin, String pRequestHeaders) {
+        Map<String,String> ret = new HashMap<String, String>();
+        if (pOrigin != null && backendManager.isCorsAccessAllowed(pOrigin)) {
+            // CORS is allowed, we set exactly the origin in the header, so there are no problems with authentication
+            ret.put("Access-Control-Allow-Origin","null".equals(pOrigin) ? "*" : pOrigin);
+            if (pRequestHeaders != null) {
+                ret.put("Access-Control-Allow-Headers",pRequestHeaders);
+            }
+            // Allow for one year. Changes in access.xml are reflected directly in the  cors request itself
+            ret.put("Access-Control-Allow-Max-Age","" + 3600 * 24 * 365);
+        }
+        return ret;
+    }
+
+
     private Object extractJsonRequest(InputStream pInputStream, String pEncoding) throws IOException {
         InputStreamReader reader = null;
         try {
@@ -147,25 +174,25 @@ public class HttpRequestHandler {
         try {
             return backendManager.handleRequest(pJmxReq);
         } catch (ReflectionException e) {
-            return getErrorJSON(404,e);
+            return getErrorJSON(404,e, pJmxReq);
         } catch (InstanceNotFoundException e) {
-            return getErrorJSON(404,e);
+            return getErrorJSON(404,e, pJmxReq);
         } catch (MBeanException e) {
-            return getErrorJSON(500,e.getTargetException());
+            return getErrorJSON(500,e.getTargetException(), pJmxReq);
         } catch (AttributeNotFoundException e) {
-            return getErrorJSON(404,e);
+            return getErrorJSON(404,e, pJmxReq);
         } catch (UnsupportedOperationException e) {
-            return getErrorJSON(500,e);
+            return getErrorJSON(500,e, pJmxReq);
         } catch (IOException e) {
-            return getErrorJSON(500,e);
+            return getErrorJSON(500,e, pJmxReq);
         } catch (IllegalArgumentException e) {
-            return getErrorJSON(400,e);
+            return getErrorJSON(400,e, pJmxReq);
         } catch (SecurityException e) {
             // Wipe out stacktrace
-            return getErrorJSON(403,new Exception(e.getMessage()));
+            return getErrorJSON(403,new Exception(e.getMessage()), pJmxReq);
         } catch (RuntimeMBeanException e) {
             // Use wrapped exception
-            return errorForUnwrappedException(e);
+            return errorForUnwrappedException(e,pJmxReq);
         }
     }
 
@@ -187,12 +214,12 @@ public class HttpRequestHandler {
      */
     public JSONObject handleThrowable(Throwable pThrowable) {
         if (pThrowable instanceof IllegalArgumentException) {
-            return getErrorJSON(400,pThrowable);
+            return getErrorJSON(400,pThrowable, null);
         } else if (pThrowable instanceof SecurityException) {
             // Wipe out stacktrace
-            return getErrorJSON(403,new Exception(pThrowable.getMessage()));
+            return getErrorJSON(403,new Exception(pThrowable.getMessage()), null);
         } else {
-            return getErrorJSON(500,pThrowable);
+            return getErrorJSON(500,pThrowable, null);
         }
     }
 
@@ -200,11 +227,13 @@ public class HttpRequestHandler {
     /**
      * Get the JSON representation for a an exception
      *
+     *
      * @param pErrorCode the HTTP error code to return
      * @param pExp the exception or error occured
+     * @param pJmxReq
      * @return the json representation
      */
-    public JSONObject getErrorJSON(int pErrorCode, Throwable pExp) {
+    public JSONObject getErrorJSON(int pErrorCode, Throwable pExp, JmxRequest pJmxReq) {
         JSONObject jsonObject = new JSONObject();
         jsonObject.put("status",pErrorCode);
         jsonObject.put("error",getExceptionMessage(pExp));
@@ -214,6 +243,9 @@ public class HttpRequestHandler {
         jsonObject.put("stacktrace",writer.toString());
         if (backendManager.isDebug()) {
             backendManager.error("Error " + pErrorCode,pExp);
+        }
+        if (pJmxReq != null) {
+            jsonObject.put("request",pJmxReq.toJSON());
         }
         return jsonObject;
     }
@@ -231,6 +263,27 @@ public class HttpRequestHandler {
         }
     }
 
+    /**
+     * Check whether for the given host is a cross-browser request allowed. This check is deligated to the
+     * backendmanager which is responsible for the security configuration.
+     * Also, some sanity checks are applied.
+     *
+     * @param pOrigin the origin URL to check against
+     * @return the origin to put in the response header or null if none is to be set
+     */
+    public String extractCorsOrigin(String pOrigin) {
+        if (pOrigin != null) {
+            // Prevent HTTP response splitting attacks
+            String origin  = pOrigin.replaceAll("[\\n\\r]*","");
+            if (backendManager.isCorsAccessAllowed(origin)) {
+                return "null".equals(origin) ? "*" : origin;
+            } else {
+                return null;
+            }
+        }
+        return null;
+    }
+
     // Extract class and exception message for an error message
     private String getExceptionMessage(Throwable pException) {
         String message = pException.getLocalizedMessage();
@@ -239,10 +292,11 @@ public class HttpRequestHandler {
 
     // Unwrap an exception to get to the 'real' exception
     // and extract the error code accordingly
-    private JSONObject errorForUnwrappedException(Exception e) {
+    private JSONObject errorForUnwrappedException(Exception e, JmxRequest pJmxReq) {
         Throwable cause = e.getCause();
         int code = cause instanceof IllegalArgumentException ? 400 : cause instanceof SecurityException ? 403 : 500;
-        return getErrorJSON(code,cause);
+        return getErrorJSON(code,cause, pJmxReq);
     }
+
 
 }

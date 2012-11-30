@@ -26,14 +26,14 @@ import org.easymock.EasyMock;
 import org.jolokia.request.JmxListRequest;
 import org.jolokia.request.JmxRequestBuilder;
 import org.jolokia.restrictor.AllowAllRestrictor;
-import static org.jolokia.test.util.EnvTestUtil.asSet;
-import org.jolokia.util.*;
-import org.testng.annotations.*;
+import org.jolokia.util.ConfigKey;
+import org.jolokia.util.RequestType;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.replay;
+import static org.easymock.EasyMock.*;
+import static org.jolokia.test.util.EnvTestUtil.asSet;
 import static org.testng.Assert.*;
-import static org.testng.Assert.assertEquals;
 
 /**
  * @author roland
@@ -46,6 +46,16 @@ public class ListHandlerTest {
     @BeforeMethod
     private void createHandler() {
         handler = new ListHandler(new AllowAllRestrictor());
+    }
+
+    @Test
+    public void singleSlashPath() throws Exception {
+        for (String p : new String[] { null, "", "/" }) {
+            JmxListRequest request = new JmxRequestBuilder(RequestType.LIST).path(p).build();
+            Map res = execute(request);
+            assertTrue(res.containsKey("java.lang"));
+            assertTrue(res.get("java.lang") instanceof Map);
+        }
     }
 
     @Test
@@ -128,11 +138,24 @@ public class ListHandlerTest {
         assertTrue(ops.containsKey("gc"));
         assertTrue(ops.get("gc") instanceof Map);
         Map attrs = (Map) res.get("attr");
-        assertEquals(attrs.size(),4);
+        // Java 7 introduces a new attribute 'ObjectName' here
+        assertEquals(attrs.size(),attrs.containsKey("ObjectName") ? 5 : 4);
         assertTrue(attrs.get("HeapMemoryUsage") instanceof Map);
         assertTrue(res.get("desc") instanceof String);
     }
 
+    @Test
+    public void keyOrder() throws Exception {
+        JmxListRequest request = new JmxRequestBuilder(RequestType.LIST).option(ConfigKey.CANONICAL_NAMING,"true").build();
+        Map res = execute(request);
+        Map<String,?> mbeans = (Map<String,?>) res.get("java.lang");
+        for (String key : mbeans.keySet()) {
+            String parts[] = key.split(",");
+            String partsSorted[] = parts.clone();
+            Arrays.sort(partsSorted);
+            assertEquals(parts,partsSorted);
+        }
+    }
 
     @Test
     public void truncatedList() throws Exception {

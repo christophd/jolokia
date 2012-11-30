@@ -41,7 +41,7 @@
       distinguished from one another. <emphasis>Jolokia operations</emphasis> denote
       the various kind of Jolokia requests, whereas <emphasis>JMX
       operations</emphasis> are methods which can be invoked on an JMX
-      MBean. Wherever the context requires it, this documents uses
+      MBean. Whenever the context requires it, this documents uses
       <emphasis>Jolokia</emphasis> or <emphasis>JMX</emphasis> as
       prefix.  
     </note>
@@ -52,33 +52,32 @@
         requests, which are distinguished by the HTTP method used: GET
         or POST. Regardless of what method is used, the agent doesn't
         keep any state on the server side (except of course that
-        MBeans are mostly obviously stateful). So in this aspect, the
+        MBeans are obviously stateful most of the time). So in this aspect, the
         communication can be considered
        <ulink url="http://en.wikipedia.org/wiki/Representational_State_Transfer">REST</ulink>
         like<footnote id="rest-comment">
           <para>This document will avoid the term REST as much as
           possible in order to avoid provoking any dogmatic
-          resentments.</para> 
+          resentments.</para>
         </footnote>.
       </para>
       <section id="get-request">
         <title>GET requests</title>
         <para>
-          The simplest way to access the Jolokia is by sending
-          HTTP GET requests. These requests encode all its parameters
-          within the access URL. Typically, Jolokia uses the path-info
-          part of an URL to extract the parameters. Within the
-          path-info, each part is separated by a slash
-          (<literal>/</literal>).  In general, the request URL looks
-          like
+          The simplest way to access the Jolokia agent is by sending
+          HTTP GET requests. These requests encode all their
+          parameters within the access URL. Typically, Jolokia uses
+          the path-info part of an URL to extract the
+          parameters. Within the path-info, each part is separated by
+          a slash (<literal>/</literal>).  In general, the request URL
+          looks like
           <synopsis><![CDATA[<base-url>/<type>/<arg1>/<arg2>/..../]]></synopsis>
           The <literal>&lt;base-url&gt;</literal> specifies the URL
-          under which the agent is accessible. It
-          typically looks like
-          <uri>http://localhost:8080/jolokia</uri>, but depends
-          obviously on your deployment setup. Normally, the last part
-          of this URL is the name of the deployed agent, which by
-          default is based on the agent's filename
+          under which the agent is accessible. It normally looks like
+          <uri>http://localhost:8080/jolokia</uri>, but depends on
+          your deployment setup. The last part of this URL is the
+          <emphasis>context root</emphasis> of the deployed agent,
+          which by default is based on the agent's filename
           (e.g. <filename>jolokia.war</filename>).
           <literal>&lt;type&gt;</literal> specifies one of the
           supported Jolokia operations (described in the next
@@ -115,7 +114,7 @@
         <para>
           If one of the request parts contain a slash
           (<literal>/</literal>) (e.g. as part of you bean's name) it
-          needs to be escaped. An exlamation mark
+          needs to be escaped. An exclamation mark
           (<literal>!</literal>) is used as escape character<footnote
           id="no-backslash">
           <para>
@@ -123,10 +122,11 @@
             most servlet container translate a backslash into a forward
             slash on the fly when given in an URL. 
           </para>
-          </footnote>. A exclamation mark needs to be doubled for
-          escaping. Any other characted preceded by an exlamation mark
-          is taken literally. Table <xref linkend="escape-rules"/>
-          illustrates the escape rules as used in GET requests.           
+          </footnote>. An exclamation mark itself needs to be doubled
+          for escaping. Any other characted preceded by an exclamation
+          mark is taken literally. Table <xref
+          linkend="escape-rules"/> illustrates the escape rules as
+          used in GET requests.
         </para>
         <table id="escape-rules">
           <title>Escaping rules</title>
@@ -171,7 +171,7 @@
           used instead. This should be URL encoded, though. For the
           example above, the alternative is
           <informalexample>
-            <literallayout class="monospaced">http://localhost:8080/jolokia?p=/read/test:strangeName=%2Fbla%2F%2F/attribute</literallayout>
+            <literallayout class="monospaced">http://localhost:8080/jolokia?p=/read/jboss.jmx:alias=jmx%2Frmi%2FRMIAdaptor/State</literallayout>
           </informalexample>
         </para>
       </section>
@@ -381,7 +381,7 @@
           The attribute <literal>HeapMemoryUsage</literal> of the MBean 
           <literal>java.lang:type=Memory</literal> can be
           requested with the URL 
-          <literal>http://localhost:8080/j4p/read/java.lang:type=Memory/HeapMemoryUsage</literal>
+          <literal>http://localhost:8080/jolokia/read/java.lang:type=Memory/HeapMemoryUsage</literal>
           which returns a complex JSON structure like
           <programlisting language="json">
  {
@@ -395,7 +395,7 @@
           In order to get to the value for used heap memory you should
           specify an inner path <literal>used</literal>, so that the
           request
-          <literal>http://localhost:8080/j4p/read/java.lang:type=Memory/HeapMemoryUsage/used</literal>
+          <literal>http://localhost:8080/jolokia/read/java.lang:type=Memory/HeapMemoryUsage/used</literal>
           results in a response of <literal>15348352</literal>.  If
           the attribute contains arrays at some level, use a numeric
           index (0 based) as part of the inner path if you want to
@@ -404,7 +404,7 @@
         <para>
           For both, GET and POST requests, pathes must be escaped as
           described in <xref linkend="escape-rules"/> when they
-          contain slashes (<literal>/</literal>) or exlamation marks
+          contain slashes (<literal>/</literal>) or exclamation marks
           (<literal>!</literal>).
         </para>
       </section>
@@ -490,6 +490,27 @@
               exception message as value. This is useful for e.g. the
               read operation when requesting multiple attributes'
               values. Default: false 
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>mimeType</literal></term>
+          <listitem>
+            <para>
+              The MIME type to return for the response. By default,
+              this is <literal>text/plain</literal>, but it can be
+              useful for some tools to change it to
+              <literal>application/json</literal>. Init parameters can
+              be used to change the default mime type.
+            </para>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><literal>canonicalNaming</literal></term>
+          <listitem>
+            <para>
+              Defaults to "true" to return the canonical format of property lists.
+              If set to "false" then the default unsorted property list is returned.
             </para>
           </listitem>
         </varlistentry>
@@ -913,7 +934,13 @@
         value was current (as measured by the server). <xref
         linkend="response-example"/> has an example of a response
         containing historical values. 
-      </para>      
+      </para>
+      <para>
+        For multi attribute read requests, the history entry in the
+        response is a JSON object instead of an array, where this
+        object's attributes are the request's attribute names and the
+        values are the history arrays as described above.
+      </para>
     </section>
 
     <section id="protocol-proxy">
@@ -952,9 +979,18 @@
         compatible to other protocol with the same major
         version. Major version changes incorporate possibly backwards
         incompatible changes. This document describes the Jolokia
-        protocol version <emphasis role="bold">5.0</emphasis>
+        protocol version <emphasis role="bold">6.1</emphasis>
       </para>
       <variablelist>
+        <varlistentry>
+          <term><emphasis role="bold">6.1</emphasis> (since 1.0.2)</term>
+          <listitem>
+            <para>
+              Error responses contain now the original request as
+              well, for single and bulk requests.
+            </para>
+          </listitem>
+        </varlistentry>
         <varlistentry>
           <term><emphasis role="bold">6.0</emphasis> (since 1.0.0)</term>
           <listitem>

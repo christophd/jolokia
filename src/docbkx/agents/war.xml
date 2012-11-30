@@ -19,14 +19,39 @@
     container is out of scope for this document.
     </para>
     <para>
-      The servlet itself can be configured with
-      <literal>init-param</literal> declarations within the servlet
-      definition in <filename>WEB-INF/web.xml</filename>. The known
-      parameters are described in <xref
-      linkend="agent-war-init-params"/>. The stock agent needs to be
-      repackaged, though, in order to modify the internal
-      <filename>web.xml</filename>.
+      The servlet itself can be configured in two ways:
     </para>
+  <variablelist>
+    <varlistentry>
+      <term><emphasis role="bold">Servlet Init Parameters</emphasis></term>
+      <listitem>
+        Jolokia can be configured with <literal>init-param</literal>
+        declarations within the servlet definition in
+        <filename>WEB-INF/web.xml</filename>. The known parameters are
+        described in <xref linkend="agent-war-init-params"/>. The
+        stock agent needs to be repackaged, though, in order to modify
+        the internal <filename>web.xml</filename>.
+      </listitem>
+    </varlistentry>
+    <varlistentry>
+      <term><emphasis role="bold">Servlet Context Parameters</emphasis></term>
+      <listitem>
+        A more convenient possibility might be to use servlet context
+        parameters, which can be configured outside the WAR
+        archive. This is done differently for each servlet container
+        but involves typically the editing of a configuration
+        file. E.g. for <ulink
+        url="http://tomcat.apache.org/tomcat-7.0-doc/config/context.html">Tomcat</ulink>,
+        the context for 
+        the Jolokia agent can be adapted by putting a file
+        <filename>jolokia.xml</filename> below
+        <filename>$TC/conf/Catalina/localhost/</filename> with a
+        content like: <programlisting><![CDATA[<Context> 
+   <Parameter name="maxDepth" value="1"/> 
+</Context>]]></programlisting>
+      </listitem>
+    </varlistentry>
+  </variablelist>
     <table id="agent-war-init-params">
       <title>Servlet init parameters</title>
       <thead>
@@ -132,7 +157,71 @@
           Default: <constant>0</constant>
         </td>
       </tr>
-    </table>      
+      <tr>
+        <td><constant>mbeanQualifier</constant></td>
+        <td>
+          Qualifier to add to the ObjectName of Jolokia's own
+          MBeans. This can become necessary if more than one agent is
+          active within a servlet container. This qualifier is added
+          to the <constant>ObjectName</constant> of this agent with a
+          comma. For example a <constant>mbeanQualifier</constant>
+          with the value <constant>qualifier=own</constant> will
+          result in Jolokia server handler MBean with the name
+          <constant>jolokia:type=ServerHandler,qualifier=own</constant>
+        </td>
+        <td></td>
+      </tr>
+      <tr>
+        <td><constant>mimeType</constant></td>
+        <td>
+          MIME to use for the JSON responses
+        </td>
+        <td>
+          Default: <constant>text/plain</constant>
+        </td>
+      </tr>
+      <tr>
+        <td><constant>detectorOptions</constant></td>
+        <td>
+          Extra options passed to an detector after successful
+          detection of an application server. See below for an
+          explanation. 
+        </td>
+        <td>          
+        </td>
+      </tr>
+    </table>
+    <para>
+      Jolokia has various detectors which can detect the brand and
+      version of an application server it is running in. This version
+      is revealed with the <constant>version</constant> command. With
+      the configuration parameter <constant>detectorOptions</constant>
+      extra options can be passed to the detectors. These options take
+      the form of a JSON object, where the keys are productnames and
+      the values other JSON objects containing the specific
+      configuration. This configuration is feed to a successful
+      detector which can do some extra initialization on agent
+      startup. Currently the following extra options are supported:
+    </para>
+   <table id="agent-war-detector-options">
+      <title>Servlet init parameters</title>
+      <thead>
+        <tr>
+          <td>Product</td>
+          <td>Option</td>
+          <td>Description</td>
+        </tr>        
+      </thead>
+      <tr>
+        <td>glassfish</td>
+        <td>bootAmx</td>
+        <td>If <constant>false</constant> and the agent is running on
+        Glassfish, this will cause the AMX subsystem not to be booted
+        during startup. By default, AMX which contains all relevant
+        MBeans for monitoring Glassfish is booted.
+        </td>
+      </tr>
+   </table>
   </section>
   <section id="agent-war-security">
     <title>Security Setup</title>

@@ -3,6 +3,8 @@ package org.jolokia.converter.object;
 import java.lang.reflect.Array;
 import java.util.*;
 
+import javax.management.ObjectName;
+
 import org.jolokia.util.*;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -55,6 +57,7 @@ public class StringToObjectConverter {
         PARSER_MAP.put("char",new CharParser());
         PARSER_MAP.put(String.class.getName(),new StringParser());
         PARSER_MAP.put(Date.class.getName(),new DateParser());
+        PARSER_MAP.put(ObjectName.class.getName(), new ObjectNameParser());
 
         JSONParser jsonExtractor = new JSONParser();
         for (Class type : new Class[] { Map.class, List.class,
@@ -170,7 +173,7 @@ public class StringToObjectConverter {
         }
         return parser.extract(value);
     }
-    
+
     // Convert an array
     private Object convertToArray(String pType, String pValue) {
         // It's an array
@@ -224,7 +227,7 @@ public class StringToObjectConverter {
     }
 
 
-    
+
     // ===========================================================================
     // Extractor interface
     private interface Parser {
@@ -296,5 +299,16 @@ public class StringToObjectConverter {
             }
         }
     }
-    
+
+    private static class ObjectNameParser implements Parser {
+    	/** {@inheritDoc} */
+    	public Object extract(String pValue) {
+    		try {
+    			return new javax.management.ObjectName(pValue);
+    		} catch(javax.management.MalformedObjectNameException e) {
+    			throw new IllegalArgumentException("Cannot parse ObjectName "+ pValue +": " +e, e);
+    		}
+    	}
+    }
+
 }

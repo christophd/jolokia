@@ -21,8 +21,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.security.*;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
+import java.util.concurrent.*;
 
 import javax.net.ssl.*;
 
@@ -38,8 +37,11 @@ import com.sun.net.httpserver.*;
 public class JolokiaServer {
 
 
-    // Overal configuration
+    // Overall configuration
     private ServerConfig config;
+
+    // Whether the initialisation should be done lazy
+    private boolean lazy;
 
     // Thread for proper cleaning up our server thread
     // on exit
@@ -54,15 +56,18 @@ public class JolokiaServer {
     // Handler for jolokia requests
     private JolokiaHttpHandler jolokiaHttpHandler;
 
+    // Thread factory which creates only daemon threads
+    private ThreadFactory daemonThreadFactory = new DaemonThreadFactory();
+
     /**
      * Create the Jolokia server, i.e. the HttpServer for serving Jolokia requests.
      *
      * @param pConfig configuration for this server
      * @throws IOException if initialization fails
      */
-    public JolokiaServer(ServerConfig pConfig) throws IOException {
+    public JolokiaServer(ServerConfig pConfig,boolean pLazy) throws IOException {
         config = pConfig;
-
+        lazy = pLazy;
         initServer();
     }
 
@@ -71,7 +76,7 @@ public class JolokiaServer {
      * Start HttpServer
      */
     public void start() {
-        jolokiaHttpHandler.start();
+        jolokiaHttpHandler.start(lazy);
 
         ThreadGroup threadGroup = new ThreadGroup("jolokia");
         threadGroup.setDaemon(false);
@@ -95,7 +100,6 @@ public class JolokiaServer {
         jolokiaHttpHandler.stop();
 
         if (cleaner != null) {
-            // Instructs cleaner thread to finish and stop the server
             cleaner.stopServer();
         }
     }
@@ -150,11 +154,11 @@ public class JolokiaServer {
         Executor executor;
         String mode = config.getExecutor();
         if ("fixed".equalsIgnoreCase(mode)) {
-            executor = Executors.newFixedThreadPool(config.getThreadNr());
+            executor = Executors.newFixedThreadPool(config.getThreadNr(), daemonThreadFactory);
         } else if ("cached".equalsIgnoreCase(mode)) {
-            executor = Executors.newCachedThreadPool();
+            executor = Executors.newCachedThreadPool(daemonThreadFactory);
         } else {
-            executor = Executors.newSingleThreadExecutor();
+            executor = Executors.newSingleThreadExecutor(daemonThreadFactory);
         }
         httpServer.setExecutor(executor);
     }
@@ -201,6 +205,19 @@ public class JolokiaServer {
     }
 
     // ======================================================================================
+
+    // Thread factory for creating daemon threads only
+    private static class DaemonThreadFactory implements ThreadFactory {
+
+        @Override
+        /** {@inheritDoc} */
+        public Thread newThread(Runnable r) {
+            Thread t = new Thread(r);
+            t.setDaemon(true);
+            return t;
+        }
+    }
+
     // Simple authenticator
     private static class JolokiaAuthenticator extends BasicAuthenticator {
         private String user;

@@ -16,8 +16,7 @@ package org.jolokia.it;
  *  limitations under the License.
  */
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author roland
@@ -28,11 +27,13 @@ public class MxBeanSample implements MxBeanSampleMXBean {
     int[] numbers = new int[] { 47, 11} ;
     private ComplexTestData complex;
     private Map<String, Long> map;
-
+    private Map<ComplexMapKey,String> mapWithComplexKey;
+    private PojoBean bean;
     public MxBeanSample() {
         map = new HashMap<String, Long>();
         map.put("magic",42L);
         complex = new ComplexTestData();
+        bean = new PojoBean("fcn","42");
     }
 
     public int[] getNumbers() {
@@ -59,11 +60,38 @@ public class MxBeanSample implements MxBeanSampleMXBean {
         map = pMap;
     }
 
+    public Map<ComplexMapKey,String> getMapWithComplexKey() {
+        Map<ComplexMapKey,String> map = new TreeMap<ComplexMapKey,String>();
+        map.put(new ComplexMapKey("foo", 1), "foo1");
+        map.put(new ComplexMapKey("bar", 2), "foo2");
+        return map;
+    }
+
+    public void setMapWithComplexKey(Map<ComplexMapKey,String> pMap) {
+        mapWithComplexKey = pMap;
+    }
+
     public int exec(long arg) {
         return 0;
     }
 
     public int exec(ComplexTestData arg) {
         return 1;
+    }
+
+    public String echo(String message) {
+        return message;
+    }
+
+    public PojoBean getPojoBean() {
+        return bean;
+    }
+
+    public void setPojoBean(PojoBean pBean) {
+        bean = pBean;
+    }
+
+    public PojoBean echoBean(PojoBean pBean) {
+        return pBean;
     }
 }

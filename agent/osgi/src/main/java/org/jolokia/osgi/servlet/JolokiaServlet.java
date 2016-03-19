@@ -1,11 +1,13 @@
+package org.jolokia.osgi.servlet;
+
 /*
- * Copyright 2009-2011 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -13,8 +15,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-package org.jolokia.osgi.servlet;
 
 import javax.servlet.*;
 
@@ -32,7 +32,7 @@ import org.osgi.util.tracker.ServiceTracker;
  *
  * This service also tracks the availability of a log
  * service in order redirect the servlet logging to
- * the log service (if availabled). Otherwise it uses
+ * the log service (if available). Otherwise it uses
  * the servlet's logging facility as fallback.
  *
  * @author roland
@@ -99,20 +99,21 @@ public class JolokiaServlet extends AgentServlet {
      * for logging, in the other time uses the servlet's default logging facility
      *
      * @param pServletConfig  servlet configuration
+     * @param pDebug
      */
     @Override
-    protected LogHandler createLogHandler(ServletConfig pServletConfig) {
+    protected LogHandler createLogHandler(ServletConfig pServletConfig, boolean pDebug) {
         // If there is a bundle context available, set up a tracker for tracking the logging
-        // service and optionally a restrictor service
+        // service
         BundleContext ctx = getBundleContext(pServletConfig);
         if (ctx != null) {
             // Track logging service
             logTracker = new ServiceTracker(ctx, LogService.class.getName(), null);
             logTracker.open();
-            return new ActivatorLogHandler(logTracker);
+            return new ActivatorLogHandler(logTracker,pDebug);
         } else {
             // Use default log handler
-            return super.createLogHandler(pServletConfig);
+            return super.createLogHandler(pServletConfig, pDebug);
         }
     }
 
@@ -156,10 +157,12 @@ public class JolokiaServlet extends AgentServlet {
     // it uses simply the servlets log facility
     private final class ActivatorLogHandler implements LogHandler {
 
-        private ServiceTracker logTracker;
+        private final boolean doDebug;
+        private final ServiceTracker logTracker;
 
-        private ActivatorLogHandler(ServiceTracker pLogTracker) {
+        private ActivatorLogHandler(ServiceTracker pLogTracker, boolean pDebug) {
             logTracker = pLogTracker;
+            doDebug = pDebug;
         }
 
         /** {@inheritDoc} */
@@ -177,7 +180,9 @@ public class JolokiaServlet extends AgentServlet {
             if (logService != null) {
                 logService.log(level,message);
             } else {
-                log(message);
+                if (level != LogService.LOG_DEBUG || doDebug) {
+                    log(message);
+                }
             }
         }
 

@@ -1,5 +1,20 @@
-var j4p = new Jolokia({url: "http://jolokia.org/jolokia", fetchInterval: 1000});
+/*
+ * Copyright 2009-2013 Roland Huss
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
 
+var j4p = new Jolokia({url: "http://jolokia.org/jolokia", fetchInterval: 1000});
 
 var context = cubism.context()
     .serverDelay(0)
@@ -28,14 +43,11 @@ var gcCount2 = jolokia.metric(
 );
 
 var agentRequest = jolokia.metric(
-    {type:        "read", mbean:"Catalina:J2EEApplication=none,J2EEServer=none,WebModule=//localhost/jolokia,j2eeType=Servlet,name=jolokia-agent",
+    {type:        "read", mbean:"Jolokia:J2EEApplication=none,J2EEServer=none,WebModule=//localhost/jolokia,j2eeType=Servlet,name=jolokia-agent",
         attribute:"requestCount"}, {name:"Jolokia", delta:10 * 1000});
-var hudsonRequest = jolokia.metric(
-    {type:        "read", mbean:"Catalina:J2EEApplication=none,J2EEServer=none,WebModule=//localhost/hudson,j2eeType=Servlet,name=Stapler",
-        attribute:"requestCount"}, {name:"Hudson", delta:10 * 1000});
-var sonarRequest = jolokia.metric(
-    {type:        "read", mbean:"Catalina:J2EEApplication=none,J2EEServer=none,WebModule=//localhost/sonar,j2eeType=Servlet,name=default",
-        attribute:"requestCount"}, {name:"Sonar", delta:10 * 1000});
+var jenkinsRequest = jolokia.metric(
+    {type:        "read", mbean:"Catalina:J2EEApplication=none,J2EEServer=none,WebModule=//localhost/jenkins,j2eeType=Servlet,name=Stapler",
+        attribute:"requestCount"}, {name:"Jenkins", delta:10 * 1000});
 var allRequests = jolokia.metric(
     function (resp) {
         var attrs = resp.value;
@@ -92,7 +104,7 @@ $(function () {
 
 
         div.selectAll(".horizon")
-            .data([agentRequest, hudsonRequest, sonarRequest, allRequests])
+            .data([agentRequest, jenkinsRequest, allRequests])
             .enter()
             .append("div")
             .attr("class", "horizon")

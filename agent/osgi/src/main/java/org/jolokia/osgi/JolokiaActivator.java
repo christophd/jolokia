@@ -1,36 +1,43 @@
 package org.jolokia.osgi;
 
+import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.InvocationTargetException;
 import java.util.Dictionary;
 import java.util.Hashtable;
 
 import javax.servlet.ServletException;
 
+import org.jolokia.config.ConfigKey;
+import org.jolokia.osgi.security.*;
 import org.jolokia.osgi.servlet.JolokiaContext;
 import org.jolokia.osgi.servlet.JolokiaServlet;
 import org.jolokia.restrictor.Restrictor;
-import org.jolokia.util.ConfigKey;
+import org.jolokia.util.NetworkUtil;
 import org.osgi.framework.*;
+import org.osgi.service.cm.Configuration;
+import org.osgi.service.cm.ConfigurationAdmin;
 import org.osgi.service.http.*;
 import org.osgi.service.log.LogService;
 import org.osgi.util.tracker.ServiceTracker;
 import org.osgi.util.tracker.ServiceTrackerCustomizer;
 
-import static org.jolokia.util.ConfigKey.*;
+import static org.jolokia.config.ConfigKey.*;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 
@@ -52,8 +59,14 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
     // Tracker for HttpService
     private ServiceTracker httpServiceTracker;
 
+    // Tracker for ConfigAdmin Service
+    private ServiceTracker configAdminTracker;
+
     // Prefix used for configuration values
     private static final String CONFIG_PREFIX = "org.jolokia";
+
+    // Prefix used for ConfigurationAdmin pid
+    private static final String CONFIG_ADMIN_PID = "org.jolokia.osgi";
 
     // HttpContext used for authorization
     private HttpContext jolokiaHttpContext;
@@ -68,6 +81,12 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
     /** {@inheritDoc} */
     public void start(BundleContext pBundleContext) {
         bundleContext = pBundleContext;
+
+        //Track ConfigurationAdmin service
+        configAdminTracker = new ServiceTracker(pBundleContext,
+                                                "org.osgi.service.cm.ConfigurationAdmin",
+                                                null);
+        configAdminTracker.open();
 
         if (Boolean.parseBoolean(getConfiguration(USE_RESTRICTOR_SERVICE))) {
             // If no restrictor is set in the constructor and we are enabled to listen for a restrictor
@@ -85,8 +104,6 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
             // Register us as JolokiaContext
             jolokiaServiceRegistration = pBundleContext.registerService(JolokiaContext.class.getCanonicalName(), this, null);
         }
-
-
     }
 
     /** {@inheritDoc} */
@@ -105,6 +122,12 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
             jolokiaServiceRegistration = null;
         }
 
+        //Shut this down last to make sure nobody calls for a property after this is shutdown
+        if (configAdminTracker != null) {
+            configAdminTracker.close();
+            configAdminTracker = null;
+        }
+
         restrictor = null;
         bundleContext = null;
     }
@@ -118,18 +141,18 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
     public synchronized HttpContext getHttpContext() {
         if (jolokiaHttpContext == null) {
             final String user = getConfiguration(USER);
-            final String password = getConfiguration(PASSWORD);
             if (user == null) {
-                jolokiaHttpContext = new JolokiaHttpContext();
+                jolokiaHttpContext = new DefaultHttpContext();
             } else {
-                jolokiaHttpContext = new JolokiaAuthenticatedHttpContext(user, password);
+                jolokiaHttpContext = new BasicAuthenticationHttpContext(getConfiguration(REALM),
+                                                                        createAuthenticator());
             }
         }
         return jolokiaHttpContext;
     }
 
     /**
-     * Get the servlet alias under which the agen servlet is registered
+     * Get the servlet alias under which the agent servlet is registered
      * @return get the servlet alias
      */
     public String getServletAlias() {
@@ -137,7 +160,6 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
     }
 
     // ==================================================================================
-
 
     // Customizer for registering servlet at a HttpService
     private Dictionary<String,String> getConfiguration() {
@@ -148,21 +170,51 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
                 config.put(key.getKeyValue(),value);
             }
         }
+        String jolokiaId = NetworkUtil.replaceExpression(config.get(ConfigKey.AGENT_ID.getKeyValue()));
+        if (jolokiaId == null) {
+            config.put(ConfigKey.AGENT_ID.getKeyValue(),
+                       NetworkUtil.getAgentId(hashCode(),"osgi"));
+        }
+        config.put(ConfigKey.AGENT_TYPE.getKeyValue(),"osgi");
         return config;
     }
 
+
     private String getConfiguration(ConfigKey pKey) {
-        // TODO: Use fragments and/or configuration service if available.
-        String value = bundleContext.getProperty(CONFIG_PREFIX + "." + pKey.getKeyValue());
+        // TODO: Use fragments if available.
+        String value = getConfigurationFromConfigAdmin(pKey);
+        if (value == null) {
+            value = bundleContext.getProperty(CONFIG_PREFIX + "." + pKey.getKeyValue());
+        }
         if (value == null) {
             value = pKey.getDefaultValue();
         }
         return value;
     }
 
+    private String getConfigurationFromConfigAdmin(ConfigKey pkey) {
+        ConfigurationAdmin configAdmin = (ConfigurationAdmin) configAdminTracker.getService();
+        if (configAdmin == null) {
+            return null;
+        }
+        try {
+            Configuration config = configAdmin.getConfiguration(CONFIG_ADMIN_PID);
+            if (config == null) {
+                return null;
+            }
+            Dictionary<?, ?> props = config.getProperties();
+            if (props == null) {
+                return null;
+            }
+            return (String) props.get(CONFIG_PREFIX + "." + pkey.getKeyValue());
+        } catch (IOException e) {
+            return null;
+        }
+    }
+
     private Filter buildHttpServiceFilter(BundleContext pBundleContext) {
         String customFilter = getConfiguration(ConfigKey.HTTP_SERVICE_FILTER);
-        String filter = customFilter.trim().length() > 0 ?
+        String filter = customFilter != null && customFilter.trim().length() > 0 ?
                 "(&" + HTTP_SERVICE_FILTER_BASE + customFilter + ")" :
                 HTTP_SERVICE_FILTER_BASE;
         try {
@@ -170,6 +222,81 @@ public class JolokiaActivator implements BundleActivator, JolokiaContext {
         } catch (InvalidSyntaxException e) {
             throw new IllegalArgumentException("Unable to parse filter " + filter,e);
         }
+    }
+
+    private Authenticator createAuthenticator() {
+        Authenticator authenticator = createCustomAuthenticator();
+        if (authenticator == null) {
+            authenticator = createAuthenticatorFromAuthMode();
+        }
+        return authenticator;
+    }
+
+    private Authenticator createCustomAuthenticator() {
+        final String authenticatorClass = getConfiguration(ConfigKey.AUTH_CLASS);
+        if (authenticatorClass != null) {
+            try {
+                Class<?> authClass = Class.forName(authenticatorClass);
+                if (!Authenticator.class.isAssignableFrom(authClass)) {
+                    throw new IllegalArgumentException("Provided authenticator class [" + authenticatorClass +
+                                                       "] is not a subclass of Authenticator");
+                }
+                return lookupAuthenticator(authClass);
+            } catch (ClassNotFoundException e) {
+                throw new IllegalArgumentException("Cannot find authenticator class", e);
+            }
+        }
+        return null;
+    }
+
+    private Authenticator lookupAuthenticator(final Class<?> pAuthClass) {
+        Authenticator authenticator = null;
+        try {
+            // prefer constructor that takes configuration
+            try {
+                final Constructor<?> constructorThatTakesConfiguration = pAuthClass.getConstructor(Configuration.class);
+                authenticator = (Authenticator) constructorThatTakesConfiguration.newInstance(getConfiguration());
+            } catch (NoSuchMethodException ignore) {
+                // Next try
+                authenticator = lookupAuthenticatorWithDefaultConstructor(pAuthClass, ignore);
+            } catch (InvocationTargetException e) {
+                throw new IllegalArgumentException("Cannot create an instance of custom authenticator class with configuration", e);
+            }
+        } catch (InstantiationException e) {
+            throw new IllegalArgumentException("Cannot create an instance of custom authenticator class", e);
+        } catch (IllegalAccessException e) {
+            throw new IllegalArgumentException("Cannot create an instance of custom authenticator class", e);
+        }
+        return authenticator;
+    }
+
+    private Authenticator lookupAuthenticatorWithDefaultConstructor(final Class<?> pAuthClass, final NoSuchMethodException ignore)
+            throws InstantiationException, IllegalAccessException {
+
+        // fallback to default constructor
+        try {
+            final Constructor<?> defaultConstructor = pAuthClass.getConstructor();
+            return (Authenticator) defaultConstructor.newInstance();
+        } catch (NoSuchMethodException e) {
+            e.initCause(ignore);
+            throw new IllegalArgumentException("Cannot create an instance of custom authenticator class, no default constructor to use", e);
+        } catch (InvocationTargetException e) {
+            e.initCause(ignore);
+            throw new IllegalArgumentException("Cannot create an instance of custom authenticator using default constructor", e);
+        }
+    }
+
+    private Authenticator createAuthenticatorFromAuthMode() {
+        Authenticator authenticator;
+        final String authMode = getConfiguration(AUTH_MODE);
+        if ("basic".equalsIgnoreCase(authMode)) {
+            authenticator = new BasicAuthenticator(getConfiguration(USER),getConfiguration(PASSWORD));
+        } else if ("jaas".equalsIgnoreCase(authMode)) {
+            authenticator = new JaasAuthenticator(getConfiguration(REALM));
+        } else {
+            throw new IllegalArgumentException("Unknown authentication method '" + authMode + "' configured");
+        }
+        return authenticator;
     }
 
     // =============================================================================

@@ -1,6 +1,12 @@
 package org.jolokia.converter.object;
 
 import java.lang.reflect.Array;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Modifier;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.*;
 
 import javax.management.ObjectName;
@@ -12,19 +18,19 @@ import org.json.simple.parser.ParseException;
 
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 
@@ -52,12 +58,18 @@ public class StringToObjectConverter {
         PARSER_MAP.put("double",new DoubleParser());
         PARSER_MAP.put(Float.class.getName(),new FloatParser());
         PARSER_MAP.put("float",new FloatParser());
+        PARSER_MAP.put(BigDecimal.class.getName(),new BigDecimalParser());
+        PARSER_MAP.put(BigInteger.class.getName(),new BigIntegerParser());
+        
+
         PARSER_MAP.put(Boolean.class.getName(),new BooleanParser());
         PARSER_MAP.put("boolean",new BooleanParser());
         PARSER_MAP.put("char",new CharParser());
+        PARSER_MAP.put(Character.class.getName(),new CharParser());
         PARSER_MAP.put(String.class.getName(),new StringParser());
         PARSER_MAP.put(Date.class.getName(),new DateParser());
         PARSER_MAP.put(ObjectName.class.getName(), new ObjectNameParser());
+        PARSER_MAP.put(URL.class.getName(),new URLParser());
 
         JSONParser jsonExtractor = new JSONParser();
         for (Class type : new Class[] { Map.class, List.class,
@@ -79,7 +91,6 @@ public class StringToObjectConverter {
      * Prepare a value from a either a given object or its string representation.
      * If the value is already assignable to the given class name it is returned directly.
      *
-     *
      * @param pExpectedClassName type name of the expected type
      * @param pValue value to either take directly or to convert from its string representation.
      * @return the prepared / converted object
@@ -88,15 +99,37 @@ public class StringToObjectConverter {
         if (pValue == null) {
             return null;
         } else {
-            Object param = prepareForDirectUsage(pExpectedClassName, pValue);
+            Class expectedClass = ClassUtil.classForName(pExpectedClassName);
+            Object param = null;
+            if (expectedClass != null) {
+                param = prepareValue(expectedClass,pValue);
+            }
             if (param == null) {
                 // Ok, we try to convert it from a string
+                // If expectedClass is null, it is probably a native type, so we
+                // let happen the string conversion
+                // later on (e.g. conversion of pArgument.toString()) which will throw
+                // an exception at this point if conversion can not be done
+
                 return convertFromString(pExpectedClassName, pValue.toString());
             }
             return param;
         }
     }
 
+    // Extract a type version of the method above. This might be useful later
+    // on, e.g. when setting enums should be supported for certain
+    // use cases
+    private Object prepareValue(Class expectedClass, Object pValue) {
+        if (pValue == null) {
+            return null;
+        }
+        if (Enum.class.isAssignableFrom(expectedClass)) {
+            return Enum.valueOf(expectedClass,pValue.toString());
+        } else {
+            return prepareForDirectUsage(expectedClass, pValue);
+        }
+    }
 
     /**
      * For GET requests, where operation arguments and values to write are given in
@@ -130,22 +163,34 @@ public class StringToObjectConverter {
 
     // ======================================================================================================
 
-    // Check whether an argument can be used directly or whether it needs some sort
-    // of conversion. Returns null if a string conversion should happen
-    private Object prepareForDirectUsage(String pExpectedClassName, Object pArgument) {
-        Class expectedClass = ClassUtil.classForName(pExpectedClassName);
-        if (expectedClass == null) {
-            // It is probably a native type, so we let happen the string conversion
-            // later on (e.g. conversion of pArgument.toString()) which will throw
-            // an exception at this point if conversion can not be done
-            return null;
-        }
+    // Check whether an argument can be used directly 
+    // or the argument could be used in a public constructor
+    // or whether it needs some sort of conversion, 
+    // Returns null if a string conversion should happen
+    private Object prepareForDirectUsage(Class expectedClass, Object pArgument) {
         Class givenClass = pArgument.getClass();
         if (expectedClass.isArray() && List.class.isAssignableFrom(givenClass)) {
             return convertListToArray(expectedClass, (List) pArgument);
         } else {
-            return expectedClass.isAssignableFrom(givenClass) ? pArgument : null;
+        	return expectedClass.isAssignableFrom(givenClass) ? pArgument : null;
         }
+    }
+    
+    private Object convertByConstructor(String pType, String pValue) {
+        Class<?> expectedClass = ClassUtil.classForName(pType);
+        if (expectedClass != null) {
+            for (Constructor<?> constructor : expectedClass.getConstructors()) {
+                // only support only 1 constructor parameter
+                if (constructor.getParameterTypes().length == 1 &&
+                    constructor.getParameterTypes()[0].isAssignableFrom(String.class)) {
+                    try {
+                        return constructor.newInstance(pValue);
+                    } catch (Exception ignore) { }
+                }
+            }
+        }
+        
+        return null;
     }
 
     /**
@@ -155,7 +200,7 @@ public class StringToObjectConverter {
      * @param pValue the value to convert from
      * @return the converted value
      */
-    Object convertFromString(String pType, String pValue) {
+    public Object convertFromString(String pType, String pValue) {
         String value = convertSpecialStringTags(pValue);
 
         if (value == null) {
@@ -166,12 +211,18 @@ public class StringToObjectConverter {
         }
 
         Parser parser = PARSER_MAP.get(pType);
-        if (parser == null) {
-            throw new IllegalArgumentException(
-                    "Cannot convert string " + value + " to type " +
-                            pType + " because no converter could be found");
+        if (parser != null) {
+            return parser.extract(value);
         }
-        return parser.extract(value);
+        
+        Object cValue = convertByConstructor(pType, pValue);
+        if (cValue != null) {
+        	return cValue;
+        }
+        
+        throw new IllegalArgumentException(
+                "Cannot convert string " + value + " to type " +
+                        pType + " because no converter could be found");
     }
 
     // Convert an array
@@ -276,7 +327,18 @@ public class StringToObjectConverter {
         public Object extract(String pValue) { return Short.parseShort(pValue); }
     }
 
+    private static class BigDecimalParser implements Parser {
+        /** {@inheritDoc} */
+        public Object extract(String pValue) { return new BigDecimal(pValue); }
+    }
+
+    private static class BigIntegerParser implements Parser {
+        /** {@inheritDoc} */
+        public Object extract(String pValue) { return new BigInteger(pValue); }
+    }
+
     private static class DateParser implements Parser {
+
         /** {@inheritDoc} */
         public Object extract(String pValue) {
             long time;
@@ -288,8 +350,8 @@ public class StringToObjectConverter {
             }
         }
     }
-
     private static class JSONParser implements Parser {
+
         /** {@inheritDoc} */
         public Object extract(String pValue) {
             try {
@@ -299,9 +361,9 @@ public class StringToObjectConverter {
             }
         }
     }
-
     private static class ObjectNameParser implements Parser {
-    	/** {@inheritDoc} */
+
+        /** {@inheritDoc} */
     	public Object extract(String pValue) {
     		try {
     			return new javax.management.ObjectName(pValue);
@@ -311,4 +373,15 @@ public class StringToObjectConverter {
     	}
     }
 
+    private static class URLParser implements Parser {
+
+        /** {@inheritDoc} */
+        public Object extract(String pValue) {
+            try {
+                return new URL(pValue);
+            } catch (MalformedURLException e) {
+                throw new IllegalArgumentException("Cannot parse URL " + pValue + ": " + e, e);
+            }
+        }
+    }
 }

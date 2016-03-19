@@ -16,6 +16,8 @@ package org.jolokia.converter.json;
  *  limitations under the License.
  */
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStream;
 import java.lang.reflect.InvocationTargetException;
 import java.util.Date;
 
@@ -69,12 +71,17 @@ public class BeanExtractorTest extends AbstractExtractorTest {
         assertFalse((Boolean) res.get("flag"));
         assertEquals( ((JSONObject) res.get("inner")).get("innerText"),"innerValue");
         assertNull(res.get("nulli"));
+        assertTrue(!res.containsKey("forbiddenStream"));
         assertTrue(res.containsKey("nulli"));
         assertEquals(res.get("nacked"),"nacked object");
         assertEquals(res.get("self"),"[this]");
 
         JSONObject inner = (JSONObject) extractJson(this,"inner");
         assertEquals(inner.get("innerText"),"innerValue");
+
+        JSONObject innerWithWildcardPath = (JSONObject) extractJson(this,null,"innerDate");
+        assertEquals(innerWithWildcardPath.size(),1);
+        assertTrue((Long) ((JSONObject) innerWithWildcardPath.get("inner")).get("millis") <= new Date().getTime());
 
         BeanExtractorTest test = (BeanExtractorTest) extractObject(this);
         assertEquals(test,this);
@@ -91,7 +98,7 @@ public class BeanExtractorTest extends AbstractExtractorTest {
 
     }
 
-    @Test(expectedExceptions = AttributeNotFoundException.class,expectedExceptionsMessageRegExp = ".*blablub.*")
+    @Test(expectedExceptions = ValueFaultHandler.AttributeFilteredException.class)
     public void unknownMethod() throws Exception {
         extractJson(this,"blablub");
     }
@@ -133,6 +140,10 @@ public class BeanExtractorTest extends AbstractExtractorTest {
 
     public String getText() {
         return text;
+    }
+
+    public OutputStream forbiddenStream() {
+        return new ByteArrayOutputStream();
     }
 
     public boolean isFlag() {

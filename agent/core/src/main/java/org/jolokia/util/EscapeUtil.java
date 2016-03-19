@@ -1,11 +1,13 @@
+package org.jolokia.util;
+
 /*
- * Copyright 2011 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,14 +16,12 @@
  * limitations under the License.
  */
 
-package org.jolokia.util;
-
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Utility class for handling escaping of strings and pathes.
+ * Utility class for handling escaping of strings and paths.
  *
  * @author roland
  * @since 15.03.11
@@ -68,7 +68,7 @@ public final class EscapeUtil {
             Iterator<String> it = pParts.iterator();
             while (it.hasNext()) {
                 String part = it.next();
-                buf.append(escapePart(part));
+                buf.append(escapePart(part != null ? part : "*"));
                 if (it.hasNext()) {
                     buf.append("/");
                 }
@@ -90,7 +90,7 @@ public final class EscapeUtil {
         if (pPath == null || pPath.equals("") || pPath.equals("/")) {
             return null;
         }
-        return split(pPath, PATH_ESCAPE, "/");
+        return replaceWildcardsWithNull(split(pPath, PATH_ESCAPE, "/"));
     }
 
     /**
@@ -140,9 +140,9 @@ public final class EscapeUtil {
      * @param pArg argument to split
      * @param pEscape escape pattern as it can be used in a regular expression.
      * @param pDelimiter delimiter to use
-     * @return the splitted string as list or an empty array if the argument was null
+     * @return the split string as list or an empty array if the argument was null
      */
-    public static ArrayList<String> split(String pArg,String pEscape, String pDelimiter) {
+    public static List<String> split(String pArg, String pEscape, String pDelimiter) {
         if (pArg != null) {
             ArrayList<String> ret = new ArrayList<String>();
             Pattern[] pattern = SPLIT_PATTERNS.get(pEscape + pDelimiter);
@@ -153,8 +153,9 @@ public final class EscapeUtil {
 
             final Matcher m = pattern[0].matcher(pArg);
             while (m.find() && m.start(1) != pArg.length()) {
-                // Finally unescape all escaped parts
-                ret.add(pattern[1].matcher(m.group(1)).replaceAll("$1"));
+                // Finally unescape all escaped parts. Trailing escapes are captured before the delimiter applies
+                String trailingEscapes = m.group(2);
+                ret.add(pattern[1].matcher(m.group(1) + (trailingEscapes != null ? trailingEscapes : "")).replaceAll("$1"));
             }
             return ret;
         } else {
@@ -179,25 +180,55 @@ public final class EscapeUtil {
         }
     }
 
+    /**
+     * Escape the delimiter in an argument with the given escape char.
+     *
+     * @param pArg string to add escapes to
+     * @param pEscape the escape character (e.g. '\')
+     * @param pDelimiter the delimiter to escape (e.g. ',')
+     * @return the escaped char
+     */
+    public static String escape(String pArg, String pEscape, String pDelimiter) {
+        return pArg.replaceAll(pEscape, pEscape + pEscape).replaceAll(pDelimiter, pEscape + pDelimiter);
+    }
+
     // ===================================================================================
 
     // Create a split pattern for a given delimiter
     private static Pattern[] createSplitPatterns(String pEscape, String pDel) {
         return new Pattern[] {
-                // Escape
-                Pattern.compile("((?:[^" + pEscape + pDel + "]|" + pEscape + ".)*)(?:" + pDel + "|$)"),
+                // Escape ($1: Everything before the delimiter, $2: Trailing escaped values (optional)
+                Pattern.compile("(.*?)" + // Any chars
+                                "(?:" +
+                                   // The delimiter not preceded by an escape (but pairs of escape & value can be in
+                                   // are allowed before nevertheless). A negative-look-before (?<!) is used for this
+                                   // purpose
+                                   "(?<!" + pEscape  + ")((?:" + pEscape + ".)*)" + pDel + "|" +
+                                   "$" +    // or end-of-line
+                                 ")",Pattern.DOTALL),
+
                 // Unescape, group must match unescaped value
-                Pattern.compile(pEscape + "(.)")
+                Pattern.compile(pEscape + "(.)",Pattern.DOTALL)
         };
     }
 
     // Escape a single part
     private static final Pattern ESCAPE_PATTERN = Pattern.compile(PATH_ESCAPE);
+
     private static final Pattern SLASH_PATTERN = Pattern.compile("/");
     private static String escapePart(String pPart) {
         return SLASH_PATTERN.matcher(
                 ESCAPE_PATTERN.matcher(pPart).replaceAll(PATH_ESCAPE + PATH_ESCAPE)).replaceAll(PATH_ESCAPE + "/");
     }
 
-
+    private static List<String> replaceWildcardsWithNull(List<String> pParts) {
+        if (pParts  == null) {
+            return null;
+        }
+        List<String> ret = new ArrayList<String>(pParts.size());
+        for (String part : pParts) {
+            ret.add("*".equals(part) ? null : part);
+        }
+        return ret;
+    }
 }

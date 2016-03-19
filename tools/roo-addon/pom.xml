@@ -20,19 +20,19 @@
   <groupId>org.jolokia</groupId>
   <artifactId>jolokia-roo</artifactId>
   <packaging>bundle</packaging>
-  <version>1.0.7-SNAPSHOT</version>
+  <version>1.3.4-SNAPSHOT</version>
   <name>jolokia-roo</name>
   <description>jolokia roo addon</description>
 
   <parent>
     <groupId>org.jolokia</groupId>
     <artifactId>jolokia</artifactId>
-    <version>1.0.7-SNAPSHOT</version>
+    <version>1.3.4-SNAPSHOT</version>
     <relativePath>../../pom.xml</relativePath>
   </parent>
 
   <properties>
-    <roo.version>1.2.0.RELEASE</roo.version>
+    <roo.version>1.2.5.RELEASE</roo.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <jolokia.version>${project.version}</jolokia.version>
   </properties>
@@ -55,7 +55,7 @@
     <dependency>
       <groupId>org.apache.felix</groupId>
       <artifactId>org.apache.felix.scr.annotations</artifactId>
-      <version>1.6.0</version>
+      <version>1.9.6</version>
     </dependency>
 
     <!-- Spring Roo modules -->
@@ -125,6 +125,7 @@
         </executions>
         <configuration>
           <useAgent>true</useAgent>
+          <keyname>roland@jolokia.org</keyname>
         </configuration>
       </plugin>
       <plugin>

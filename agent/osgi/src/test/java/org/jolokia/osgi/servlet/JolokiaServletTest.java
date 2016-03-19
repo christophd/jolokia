@@ -18,10 +18,11 @@ package org.jolokia.osgi.servlet;
 
 import java.util.Set;
 
-import javax.management.MBeanServer;
+import javax.management.MBeanServerConnection;
 import javax.servlet.*;
 
 import org.easymock.EasyMock;
+import org.jolokia.backend.executor.MBeanServerExecutor;
 import org.jolokia.detector.ServerDetector;
 import org.jolokia.detector.ServerHandle;
 import org.jolokia.restrictor.AllowAllRestrictor;
@@ -97,7 +98,7 @@ public class JolokiaServletTest {
         servlet.init(config);
         assertNull(JolokiaServlet.getCurrentBundleContext());
 
-        LogHandler handler = servlet.createLogHandler(config);
+        LogHandler handler = servlet.createLogHandler(config, true);
         handler.debug("Debug");
         handler.info("Info");
         handler.error("Error",new Exception());
@@ -136,11 +137,11 @@ public class JolokiaServletTest {
 
     public static class CatchAllDetector implements ServerDetector {
 
-        public ServerHandle detect(Set<MBeanServer> pMbeanServers) {
-            return new ServerHandle(null,null,null,null,null);
+        public ServerHandle detect(MBeanServerExecutor pMBeanServerExecutor) {
+            return new ServerHandle(null,null,null, null);
         }
 
-        public void addMBeanServers(Set<MBeanServer> pMBeanServers) {
+        public void addMBeanServers(Set<MBeanServerConnection> pMBeanServers) {
         }
     }
 

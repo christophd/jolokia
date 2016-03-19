@@ -84,18 +84,82 @@ Resources
 Even more information on Jolokia can be found at [www.jolokia.org][5], including
 a complete [reference manual][12].
 
+Contributions
+-------------
+
+Contributions in form of pull requests are highly appreciated. All your work must be donated under the 
+Apache Public License, too. Please sign-off your work before 
+doing a pull request. The sign-off is a simple line at the end of the patch description, 
+which certifies that you wrote it or otherwise have the right to
+pass it on as an open-source patch.  The rules are very simple: if you
+can certify the below (from
+[developercertificate.org](http://developercertificate.org/)):
+
+```
+Developer Certificate of Origin
+Version 1.1
+
+Copyright (C) 2004, 2006 The Linux Foundation and its contributors.
+660 York Street, Suite 102,
+San Francisco, CA 94110 USA
+
+Everyone is permitted to copy and distribute verbatim copies of this
+license document, but changing it is not allowed.
+
+Developer's Certificate of Origin 1.1
+
+By making a contribution to this project, I certify that:
+
+(a) The contribution was created in whole or in part by me and I
+    have the right to submit it under the open source license
+    indicated in the file; or
+
+(b) The contribution is based upon previous work that, to the best
+    of my knowledge, is covered under an appropriate open source
+    license and I have the right under that license to submit that
+    work with modifications, whether created in whole or in part
+    by me, under the same open source license (unless I am
+    permitted to submit under a different license), as indicated
+    in the file; or
+
+(c) The contribution was provided directly to me by some other
+    person who certified (a), (b) or (c) and I have not modified
+    it.
+
+(d) I understand and agree that this project and the contribution
+    are public and that a record of the contribution (including all
+    personal information I submit with it, including my sign-off) is
+    maintained indefinitely and may be redistributed consistent with
+    this project or the open source license(s) involved.
+```
+
+Then you just add a line to every git commit message:
+
+    Signed-off-by: Max Morlock <max.morlock@fcn.de>
+
+Using your real name (sorry, no pseudonyms or anonymous contributions.)
+
+If you set your `user.name` and `user.email` git configs, you can sign your
+commit automatically with `git commit -s`.
+
+If you fix some documentation (typos, formatting, ...) you are not required to sign-off. 
+It is possible to sign you commits in retrospective, [too](http://stackoverflow.com/questions/13043357/git-sign-off-previous-commits) 
+if you forgot it the first time. 
+
+[![Gitter](https://badges.gitter.im/Join Chat.svg)](https://gitter.im/rhuss/jolokia?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![endorse](http://api.coderwall.com/rhuss/endorsecount.png)](http://coderwall.com/rhuss)
 [![Build Status](https://secure.travis-ci.org/rhuss/jolokia.png)](http://travis-ci.org/rhuss/jolokia)
+[![Flattr](http://api.flattr.com/button/flattr-badge-large.png)](http://flattr.com/thing/73919/Jolokia-JMX-on-Capsaicin)
 
- [1]: http://labs.consol.de/wp-content/uploads/2010/10/jolokia_logo.png "Jolokia"
+ [1]: https://jolokia.org/images/jolokia_logo.png "Jolokia"
  [2]: http://www.osgi.org
  [3]: http://www.mulesoft.org
  [4]: http://www.jmx4perl.org
- [5]: http://www.jolokia.org
+ [5]: https://www.jolokia.org
  [6]: http://labs.consol.de/blog/jmx4perl/configuring-remote-jmx-access-for-weblogic   
  [7]: http://labs.consol.de/blog/jmx4perl/jboss-remote-jmx
  [8]: http://search.cpan.org/~roland/jmx4perl/scripts/check_jmx4perl
- [9]: http://forum.jolokia.org
+ [9]: https://jolokia.org/forum.html
  [10]: https://github.com/rhuss/jolokia/issues
  [11]: http://webchat.freenode.net/?channels=jolokia
- [12]: http://www.jolokia.org/reference/html/index.html
+ [12]: https://www.jolokia.org/reference/html/index.html

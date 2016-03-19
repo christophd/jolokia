@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ~ Copyright 2009-2013 Roland Huss
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~       http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
 <chapter id="security">
     <title>Security</title>
 
@@ -186,6 +202,7 @@
           url="http://caniuse.com/#search=CORS">contemporary
           browsers</ulink> support CORS.
         </para>
+
         <para>
           By default Jolokia allows cross origin access from any
           host. This can be limited to certain hosts by using
@@ -195,16 +212,25 @@
           <literal>Origin:</literal> header literally or a
           wildcard specification with <literal>*</literal>.          
         </para>
-      </section>
-      <programlisting language="xml"><![CDATA[
+        <programlisting language="xml"><![CDATA[
 <cors>
    <!-- Allow cross origin access from www.jolokia.org ... -->
    <allow-origin>http://www.jolokia.org</allow-origin>
 
    <!-- ... and all servers from jmx4perl.org with any protocol ->
    <allow-origin>*://*.jmx4perl.org</allow-origin>
+
+   <!-- Check for the proper origin on the server side, too -->
+   <strict-checking/>
 </cors>
 ]]></programlisting>
+        <para>
+          If the option <literal>&lt;strict-checking/&gt;</literal> is given in this section, too, then the given patterns
+          are not only used for CORS checking but also every request is checked on the server side whether the
+          <literal>Origin:</literal> or <literal>Referer:</literal> header matches one of the given patterns.
+          This useful for protecting against Cross-Site Request Forgery.
+        </para>
+      </section>
       <section>
         <title>Example for a security policy</title>
         <para>
@@ -286,7 +312,7 @@
           But how do the agents lookup the policy file ? By default,
           the agents will lookup for a policy file top-level in the
           classpath under the name
-          <filename>jolokia-access.html</filename>. Hence for the war
+          <filename>jolokia-access.xml</filename>. Hence for the war
           agent, the policy file must be packaged within the war at
           <filename>WEB-INF/classes/jolokia-access.xml</filename>, for
           all other agents at
@@ -307,8 +333,24 @@
           is globally granted and a warning is given on standard
           output.
         </para>
+        <para>
+          The parameter specified with <literal>policyLocation</literal> can contain placeholders:
+        </para>
+        <itemizedlist>
+          <listitem>
+            <para><literal>$ip</literal>: IP - Address</para>
+          </listitem>
+          <listitem>
+            <para><literal>$host</literal> : Host - Address</para>
+          </listitem>
+          <listitem>
+            <para><literal>${prop:foo}</literal> : System property <emphasis>foo</emphasis></para>
+          </listitem>
+          <listitem>
+            <para><literal>${env:FOO}</literal> : Environment variable <emphasis>FOO</emphasis></para>
+          </listitem>
+        </itemizedlist>
       </section>
-
     </section>
 
     <section id="security-restrictor">

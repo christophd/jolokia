@@ -7,8 +7,14 @@ import java.util.*;
 
 import javax.management.*;
 
+import org.jolokia.backend.executor.NotChangedException;
+import org.jolokia.config.ConfigKey;
+import org.jolokia.config.Configuration;
 import org.jolokia.converter.Converters;
+import org.jolokia.converter.json.JsonConvertOptions;
 import org.jolokia.detector.ServerHandle;
+import org.jolokia.discovery.AgentDetails;
+import org.jolokia.discovery.AgentDetailsHolder;
 import org.jolokia.history.HistoryStore;
 import org.jolokia.request.JmxRequest;
 import org.jolokia.restrictor.AllowAllRestrictor;
@@ -16,22 +22,22 @@ import org.jolokia.restrictor.Restrictor;
 import org.jolokia.util.*;
 import org.json.simple.JSONObject;
 
-import static org.jolokia.util.ConfigKey.*;
+import static org.jolokia.config.ConfigKey.*;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 
@@ -42,7 +48,7 @@ import static org.jolokia.util.ConfigKey.*;
  * @author roland
  * @since Nov 11, 2009
  */
-public class BackendManager {
+public class BackendManager implements AgentDetailsHolder {
 
     // Dispatches request to local MBeanServer
     private LocalRequestDispatcher localDispatcher;
@@ -50,6 +56,9 @@ public class BackendManager {
     // Converter for converting various attribute object types
     // a JSON representation
     private Converters converters;
+
+    // Hard limits for conversion
+    private JsonConvertOptions.Builder convertOptionsBuilder;
 
     // Handling access restrictions
     private Restrictor restrictor;
@@ -71,25 +80,28 @@ public class BackendManager {
     // --> http://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html)
     private volatile Initializer initializer;
 
+    // Details about the agent inclding the server handle
+    private AgentDetails agentDetails;
+
     /**
-     * Constrcuct a new backend manager with the given configuration and which allows
+     * Construct a new backend manager with the given configuration and which allows
      * every operation (no restrictor)
      *
-     * @param pConfig configuration map used for tuning this handler's behaviour
+     * @param pConfig configuration used for tuning this handler's behaviour
      * @param pLogHandler logger
      */
-    public BackendManager(Map<ConfigKey,String> pConfig, LogHandler pLogHandler) {
+    public BackendManager(Configuration pConfig, LogHandler pLogHandler) {
         this(pConfig, pLogHandler, null);
     }
 
     /**
      * Construct a new backend manager with the given configuration.
      *
-     * @param pConfig configuration map used for tuning this handler's behaviour
+     * @param pConfig configuration used for tuning this handler's behaviour
      * @param pLogHandler logger
      * @param pRestrictor a restrictor for limiting access. Can be null in which case every operation is allowed
      */
-    public BackendManager(Map<ConfigKey, String> pConfig, LogHandler pLogHandler, Restrictor pRestrictor) {
+    public BackendManager(Configuration pConfig, LogHandler pLogHandler, Restrictor pRestrictor) {
         this(pConfig,pLogHandler,pRestrictor,false);
     }
 
@@ -101,12 +113,16 @@ public class BackendManager {
      * @param pRestrictor a restrictor for limiting access. Can be null in which case every operation is allowed
      * @param pLazy whether the initialisation should be done lazy
      */
-    public BackendManager(Map<ConfigKey, String> pConfig, LogHandler pLogHandler, Restrictor pRestrictor, boolean pLazy) {
+    public BackendManager(Configuration pConfig, LogHandler pLogHandler, Restrictor pRestrictor, boolean pLazy) {
+
         // Access restrictor
         restrictor = pRestrictor != null ? pRestrictor : new AllowAllRestrictor();
 
         // Log handler for putting out debug
         logHandler = pLogHandler;
+
+        // Details about the agent, used for discovery
+        agentDetails = new AgentDetails(pConfig);
 
         if (pLazy) {
             initializer = new Initializer(pConfig);
@@ -137,11 +153,21 @@ public class BackendManager {
         if (debug) {
             time = System.currentTimeMillis();
         }
-        JSONObject json = callRequestDispatcher(pJmxReq);
+        JSONObject json;
+        try {
+            json = callRequestDispatcher(pJmxReq);
 
-        // Update global history store
-        historyStore.updateAndAdd(pJmxReq,json);
-        json.put("status",200 /* success */);
+            // Update global history store, add timestamp and possibly history information to the request
+            historyStore.updateAndAdd(pJmxReq,json);
+            json.put("status",200 /* success */);
+        } catch (NotChangedException exp) {
+            // A handled indicates that its value hasn't changed. We return an status with
+            //"304 Not Modified" similar to the HTTP status code (http://en.wikipedia.org/wiki/HTTP_status)
+            json = new JSONObject();
+            json.put("request",pJmxReq.toJSON());
+            json.put("status",304);
+            json.put("timestamp",System.currentTimeMillis() / 1000);
+        }
 
         if (debug) {
             debug("Execution time: " + (System.currentTimeMillis() - time) + " ms");
@@ -149,6 +175,26 @@ public class BackendManager {
         }
 
         return json;
+    }
+
+    /**
+     * Convert a Throwable to a JSON object so that it can be included in an error response
+     *
+     * @param pExp throwable to convert
+     * @param pJmxReq the request from where to take the serialization options
+     * @return the exception.
+     */
+    public Object convertExceptionToJson(Throwable pExp, JmxRequest pJmxReq)  {
+        JsonConvertOptions opts = getJsonConvertOptions(pJmxReq);
+        try {
+            JSONObject expObj =
+                    (JSONObject) converters.getToJsonConverter().convertToJson(pExp,null,opts);
+            return expObj;
+
+        } catch (AttributeNotFoundException e) {
+            // Cannot happen, since we dont use a path
+            return null;
+        }
     }
 
     /**
@@ -165,22 +211,25 @@ public class BackendManager {
     /**
      * Check whether remote access from the given client is allowed.
      *
-     * @param pRemoteHost remote host to check against
+     * @param pRemoteHost remote host to check against. Can be null if no reverse lookup is configured.
      * @param pRemoteAddr alternative IP address
      * @return true if remote access is allowed
      */
     public boolean isRemoteAccessAllowed(String pRemoteHost, String pRemoteAddr) {
-        return restrictor.isRemoteAccessAllowed(pRemoteHost,pRemoteAddr);
+        return restrictor.isRemoteAccessAllowed(pRemoteHost != null ?
+                                                        new String[] { pRemoteHost, pRemoteAddr } :
+                                                        new String[] { pRemoteAddr });
     }
 
     /**
      * Check whether CORS access is allowed for the given origin.
      *
      * @param pOrigin origin URL which needs to be checked
-     * @return true if icors access is allowed
+     * @param pStrictChecking whether to a strict check (i.e. server side check)
+     * @return true if if cors access is allowed
      */
-    public boolean isCorsAccessAllowed(String pOrigin) {
-        return restrictor.isCorsAccessAllowed(pOrigin);
+    public boolean isOriginAllowed(String pOrigin,boolean pStrictChecking) {
+        return restrictor.isOriginAllowed(pOrigin, pStrictChecking);
     }
 
     /**
@@ -213,8 +262,8 @@ public class BackendManager {
      * @param message message to log
      * @param t ecxeption occured
      */
-    // Must not be final so that we can mock it in EasyMock for our tests
     public void error(String message, Throwable t) {
+        // Must not be final so that we can mock it in EasyMock for our tests
         logHandler.error(message, t);
         if (debugStore != null) {
             debugStore.log(message, t);
@@ -230,15 +279,27 @@ public class BackendManager {
         return debugStore != null && debugStore.isDebug();
     }
 
+
+    /**
+     * Get the details for the agent which can be updated or used
+     *
+     * @return agent details
+     */
+    public AgentDetails getAgentDetails() {
+        return agentDetails;
+    }
+
+
+
     // ==========================================================================================================
 
     // Initialized used for late initialisation as it is required for the agent when used
     // as startup options
-    private class Initializer {
+    private final class Initializer {
 
-        private Map<ConfigKey, String> config;
+        private Configuration config;
 
-        public Initializer(Map<ConfigKey, String> pConfig) {
+        private Initializer(Configuration pConfig) {
             config = pConfig;
         }
 
@@ -260,22 +321,42 @@ public class BackendManager {
     }
 
     // Initialize this object;
-    private void init(Map<ConfigKey, String> pConfig) {
+    private void init(Configuration pConfig) {
         // Central objects
-        converters = new Converters(pConfig);
+        converters = new Converters();
+        initLimits(pConfig);
 
         // Create and remember request dispatchers
         localDispatcher = new LocalRequestDispatcher(converters,
                                                      restrictor,
                                                      pConfig,
                                                      logHandler);
-        ServerHandle serverHandle = localDispatcher.getServerInfo();
-        requestDispatchers = createRequestDispatchers(DISPATCHER_CLASSES.getValue(pConfig),
+        ServerHandle serverHandle = localDispatcher.getServerHandle();
+        requestDispatchers = createRequestDispatchers(pConfig.get(DISPATCHER_CLASSES),
                                                       converters,serverHandle,restrictor);
         requestDispatchers.add(localDispatcher);
 
         // Backendstore for remembering agent state
-        initStores(pConfig);
+        initMBeans(pConfig);
+
+        agentDetails.setServerInfo(serverHandle.getVendor(),serverHandle.getProduct(),serverHandle.getVersion());
+    }
+
+    private void initLimits(Configuration pConfig) {
+        // Max traversal depth
+        if (pConfig != null) {
+            convertOptionsBuilder = new JsonConvertOptions.Builder(
+                    getNullSaveIntLimit(pConfig.get(MAX_DEPTH)),
+                    getNullSaveIntLimit(pConfig.get(MAX_COLLECTION_SIZE)),
+                    getNullSaveIntLimit(pConfig.get(MAX_OBJECTS))
+            );
+        } else {
+            convertOptionsBuilder = new JsonConvertOptions.Builder();
+        }
+    }
+
+    private int getNullSaveIntLimit(String pValue) {
+        return pValue != null ? Integer.parseInt(pValue) : 0;
     }
 
     // Construct configured dispatchers by reflection. Returns always
@@ -299,7 +380,10 @@ public class BackendManager {
                                                Converters pConverters,
                                                ServerHandle pServerHandle, Restrictor pRestrictor) {
         try {
-            Class clazz = this.getClass().getClassLoader().loadClass(pDispatcherClass);
+            Class clazz = ClassUtil.classForName(pDispatcherClass, getClass().getClassLoader());
+            if (clazz == null) {
+                throw new IllegalArgumentException("Couldn't lookup dispatcher " + pDispatcherClass);
+            }
             Constructor constructor = clazz.getConstructor(Converters.class,
                                                            ServerHandle.class,
                                                            Restrictor.class);
@@ -307,8 +391,6 @@ public class BackendManager {
                     constructor.newInstance(pConverters,
                                             pServerHandle,
                                             pRestrictor);
-        } catch (ClassNotFoundException e) {
-            throw new IllegalArgumentException("Couldn't load class " + pDispatcherClass + ": " + e,e);
         } catch (NoSuchMethodException e) {
             throw new IllegalArgumentException("Class " + pDispatcherClass + " has invalid constructor: " + e,e);
         } catch (IllegalAccessException e) {
@@ -322,7 +404,7 @@ public class BackendManager {
 
     // call the an appropriate request dispatcher
     private JSONObject callRequestDispatcher(JmxRequest pJmxReq)
-            throws InstanceNotFoundException, AttributeNotFoundException, ReflectionException, MBeanException, IOException {
+            throws InstanceNotFoundException, AttributeNotFoundException, ReflectionException, MBeanException, IOException, NotChangedException {
         Object retValue = null;
         boolean useValueWithPath = false;
         boolean found = false;
@@ -337,23 +419,37 @@ public class BackendManager {
         if (!found) {
             throw new IllegalStateException("Internal error: No dispatcher found for handling " + pJmxReq);
         }
-        return converters.getToJsonConverter().convertToJson(retValue, pJmxReq, useValueWithPath);
+
+        JsonConvertOptions opts =  getJsonConvertOptions(pJmxReq);
+
+        Object jsonResult =
+                converters.getToJsonConverter()
+                          .convertToJson(retValue, useValueWithPath ? pJmxReq.getPathParts() : null, opts);
+
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("value",jsonResult);
+        jsonObject.put("request",pJmxReq.toJSON());
+        return jsonObject;
+    }
+
+    private JsonConvertOptions getJsonConvertOptions(JmxRequest pJmxReq) {
+        return convertOptionsBuilder.
+                    maxDepth(pJmxReq.getParameterAsInt(ConfigKey.MAX_DEPTH)).
+                    maxCollectionSize(pJmxReq.getParameterAsInt(ConfigKey.MAX_COLLECTION_SIZE)).
+                    maxObjects(pJmxReq.getParameterAsInt(ConfigKey.MAX_OBJECTS)).
+                    faultHandler(pJmxReq.getValueFaultHandler()).
+                    useAttributeFilter(pJmxReq.getPathParts() != null).
+                    build();
     }
 
     // init various application wide stores for handling history and debug output.
-    private void initStores(Map<ConfigKey, String> pConfig) {
-        int maxEntries = getIntConfigValue(pConfig, HISTORY_MAX_ENTRIES);
-        int maxDebugEntries = getIntConfigValue(pConfig,DEBUG_MAX_ENTRIES);
-
-        String doDebug = DEBUG.getValue(pConfig);
-        boolean debug = false;
-        if (doDebug != null && Boolean.valueOf(doDebug)) {
-            debug = true;
-        }
+    private void initMBeans(Configuration pConfig) {
+        int maxEntries = pConfig.getAsInt(HISTORY_MAX_ENTRIES);
+        int maxDebugEntries = pConfig.getAsInt(DEBUG_MAX_ENTRIES);
 
 
         historyStore = new HistoryStore(maxEntries);
-        debugStore = new DebugStore(maxDebugEntries,debug);
+        debugStore = new DebugStore(maxDebugEntries, pConfig.getAsBoolean(DEBUG));
 
         try {
             localDispatcher.initMBeans(historyStore, debugStore);
@@ -371,17 +467,4 @@ public class BackendManager {
         logHandler.error(message, t);
         debugStore.log(message, t);
     }
-
-
-    private int getIntConfigValue(Map<ConfigKey, String> pConfig, ConfigKey pKey) {
-        int ret;
-        try {
-            ret = Integer.parseInt(pKey.getValue(pConfig));
-        } catch (NumberFormatException exp) {
-            ret = Integer.parseInt(pKey.getDefaultValue());
-        }
-        return ret;
-    }
-
-
 }

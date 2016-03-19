@@ -1,23 +1,37 @@
 package org.jolokia.detector;
 
+/*
+ * Copyright 2009-2013 Roland Huss
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *       http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.HashMap;
 import java.util.Map;
 
 import javax.management.*;
 
 import org.easymock.EasyMock;
-import static org.easymock.EasyMock.*;
-
-import org.jolokia.mbean.Config;
-import org.jolokia.mbean.ConfigMBean;
-import org.jolokia.util.ConfigKey;
+import org.jolokia.backend.Config;
+import org.jolokia.config.ConfigKey;
+import org.jolokia.config.Configuration;
 import org.jolokia.util.LogHandler;
 import org.json.simple.JSONObject;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
+import static org.easymock.EasyMock.*;
 import static org.testng.Assert.*;
 
 /**
@@ -31,7 +45,6 @@ public class ServerHandleTest {
     private String vendor;
     private String product;
     private String version;
-    private URL url;
     private Map<String,String> extraInfo;
 
     @BeforeMethod
@@ -41,13 +54,11 @@ public class ServerHandleTest {
         vendor = "acim";
         product = "dukeNukem";
         version = "forEver";
-        url = new URL("http://acim.org");
-        serverHandle = new ServerHandle(vendor, product, version, url, extraInfo);
+        serverHandle = new ServerHandle(vendor, product, version, extraInfo);
     }
 
     @Test
     public void basics() throws MalformedURLException {
-        assertEquals(serverHandle.getAgentUrl(), url);
         assertEquals(serverHandle.getProduct(),product);
         assertEquals(serverHandle.getVendor(),vendor);
         assertEquals(serverHandle.getExtraInfo(null).get("extra1"),"value1");
@@ -60,39 +71,36 @@ public class ServerHandleTest {
         assertEquals(json.get("vendor"),vendor);
         assertEquals(json.get("product"),product);
         assertEquals(json.get("version"),version);
-        assertEquals(json.get("agent-url"),url.toExternalForm());
         assertEquals(((JSONObject) json.get("extraInfo")).get("extra1"),"value1");
     }
 
     @Test
     public void allNull() {
-        ServerHandle handle = new ServerHandle(null,null,null,null,null);
+        ServerHandle handle = new ServerHandle(null,null,null, null);
         assertNull(handle.getVendor());
         assertNull(handle.toJSONObject(null).get("extraInfo"));
     }
 
     @Test
     public void detectorOptions() {
-        Map<ConfigKey,String> opts = new HashMap<ConfigKey, String>();
-        opts.put(ConfigKey.DETECTOR_OPTIONS,"{\"dukeNukem\" : {\"doIt\" : true }}");
+        Configuration opts = new Configuration(ConfigKey.DETECTOR_OPTIONS, "{\"dukeNukem\" : {\"doIt\" : true }}");
         JSONObject config = serverHandle.getDetectorOptions(opts,null);
         assertTrue((Boolean) config.get("doIt"));
     }
 
     @Test
     public void detectorOptionsEmpty() {
-        JSONObject config = serverHandle.getDetectorOptions(new HashMap<ConfigKey, String>(),null);
+        JSONObject config = serverHandle.getDetectorOptions(new Configuration(),null);
         assertNull(config);
     }
 
     @Test
     public void detectOptionsFail() {
         LogHandler handler = EasyMock.createMock(LogHandler.class);
-        handler.error(matches("^.*parse options.*"),isA(Exception.class));
+        handler.error(matches("^.*parse detector options.*"),isA(Exception.class));
         replay(handler);
 
-        Map<ConfigKey,String> opts = new HashMap<ConfigKey, String>();
-        opts.put(ConfigKey.DETECTOR_OPTIONS,"blub: bla");
+        Configuration opts = new Configuration(ConfigKey.DETECTOR_OPTIONS,"blub: bla");
         JSONObject config = serverHandle.getDetectorOptions(opts,handler);
         assertNull(config);
         verify(handler);

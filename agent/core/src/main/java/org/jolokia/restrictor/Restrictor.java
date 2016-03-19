@@ -6,19 +6,19 @@ import org.jolokia.util.HttpMethod;
 import org.jolokia.util.RequestType;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 
@@ -81,7 +81,7 @@ public interface Restrictor {
      * one of the given parameters matches, then this method returns true.
      *
      * @return true is access is allowed
-     * @param pHostOrAddress one or more host or address names
+     * @param pHostOrAddress one or more host or address names.
      */
     boolean isRemoteAccessAllowed(String ... pHostOrAddress);
 
@@ -90,8 +90,9 @@ public interface Restrictor {
      * <a href="https://developer.mozilla.org/en/http_access_control">CORS</a> specification
      * for details
      *
-     * @param pOrigin the "Origin:" URL provided within the request
+     * @param pOrigin the "Origin:" header provided within the request
+     * @param pIsStrictCheck whether doing a strict check
      * @return true if this cross browser request allowed, false otherwise
      */
-    boolean isCorsAccessAllowed(String pOrigin);
+    boolean isOriginAllowed(String pOrigin, boolean pIsStrictCheck);
 }

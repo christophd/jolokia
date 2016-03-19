@@ -1,23 +1,22 @@
 package org.jolokia.jvmagent.client.util;
 
 /*
- * Copyright 2009-2011 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import java.lang.management.ManagementFactory;
-import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Pattern;
@@ -61,7 +60,11 @@ public class VirtualMachineHandlerTest {
         assertTrue(procs.size() > 0);
         boolean foundAtLeastOne = false;
         for (ProcessDescription p : procs) {
-            foundAtLeastOne |= tryAttach(p.getId());
+            try {
+                foundAtLeastOne |= tryAttach(p.getId());
+            } catch (Exception exp) {
+                System.err.println("ERROR: " + p.getId() + " " + p.getDisplay() + ": " + exp);
+            }
         }
         assertTrue(foundAtLeastOne);
     }
@@ -71,14 +74,20 @@ public class VirtualMachineHandlerTest {
     public void findProcess() throws Exception, NoSuchMethodException, IllegalAccessException {
         List<ProcessDescription> procs = filterOwnProcess(vmHandler.listProcesses());
         for (ProcessDescription desc : procs) {
-            if (desc.getDisplay() != null && desc.getDisplay().length() > 0) {
-                Pattern singleHitPattern = Pattern.compile("^" + Pattern.quote(procs.get(0).getDisplay()) + "$");
-                assertTrue(tryAttach(singleHitPattern.pattern()));
-                break;
+            try {
+                if (desc.getDisplay() != null && desc.getDisplay().length() > 0) {
+                    Pattern singleHitPattern = Pattern.compile("^" + Pattern.quote(desc.getDisplay()) + "$");
+                    assertTrue(tryAttach(singleHitPattern.pattern()));
+                    break;
+                }
+            } catch (Exception exp) {
+                // We ignore error which happen spuriously
+                System.out.println("Cannot attach to " + desc.getDisplay() + " (" + desc.getId() + "): " + exp);
+                exp.printStackTrace();
             }
         }
 
-        assertFalse(tryAttach("RobertMakClaudiPizarro",".*No.*process.*"));
+        assertFalse(tryAttach("RobertMakClaudioPizarro",".*No.*process.*"));
         if (procs.size() >= 2) {
             assertFalse(tryAttach(".",procs.get(0).getId()));
         }

@@ -1,24 +1,25 @@
 package org.jolokia.handler;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import java.util.HashMap;
 import java.util.Map;
 
+import org.jolokia.config.Configuration;
 import org.jolokia.converter.Converters;
 import org.jolokia.detector.ServerHandle;
 import org.jolokia.restrictor.Restrictor;
@@ -39,22 +40,34 @@ public class RequestHandlerManager {
     /**
      * Manager and dispatcher for incoming requests
      *
+     * @param pConfig configuration from which to obtain agent meta information
      * @param pConverters string/object converters
      * @param pServerHandle server handle for obtaining MBeanServer
      * @param pRestrictor handler for access restrictions
      */
-    public RequestHandlerManager(Converters pConverters,ServerHandle pServerHandle, Restrictor pRestrictor) {
+    public RequestHandlerManager(Configuration pConfig, Converters pConverters, ServerHandle pServerHandle, Restrictor pRestrictor) {
         JsonRequestHandler handlers[] = {
                 new ReadHandler(pRestrictor),
                 new WriteHandler(pRestrictor, pConverters),
                 new ExecHandler(pRestrictor, pConverters),
                 new ListHandler(pRestrictor),
-                new VersionHandler(pRestrictor, pServerHandle),
+                new VersionHandler(pConfig,pRestrictor, pServerHandle),
                 new SearchHandler(pRestrictor)
         };
         for (JsonRequestHandler handler : handlers) {
             requestHandlerMap.put(handler.getType(),handler);
         }
+    }
+
+    /**
+     * Manager and dispatcher for incoming requests
+     *
+     * @param pConverters string/object converters
+     * @param pServerHandle server handle for obtaining MBeanServer
+     * @param pRestrictor handler for access restrictions
+     */
+    public RequestHandlerManager(Converters pConverters, ServerHandle pServerHandle, Restrictor pRestrictor) {
+        this(null,pConverters,pServerHandle,pRestrictor);
     }
 
     /**

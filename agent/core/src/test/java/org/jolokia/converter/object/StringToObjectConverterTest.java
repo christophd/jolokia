@@ -1,20 +1,17 @@
 package org.jolokia.converter.object;
 
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
-import static org.testng.AssertJUnit.assertEquals;
-import static org.testng.AssertJUnit.assertNull;
-
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 
 import javax.management.MalformedObjectNameException;
 import javax.management.ObjectName;
 
+import org.jolokia.config.ConfigKey;
 import org.jolokia.util.DateUtil;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -22,21 +19,28 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
+import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.AssertJUnit.assertNotNull;
+import static org.testng.AssertJUnit.assertNull;
+
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 
@@ -80,6 +84,10 @@ public class StringToObjectConverterTest {
         assertEquals("Double conversion",10.5d,obj);
         obj = converter.convertFromString(double.class.getCanonicalName(),"21.3");
         assertEquals("double conversion",21.3d,obj);
+        obj = converter.convertFromString(BigDecimal.class.getCanonicalName(),"83.4e+4");
+        assertEquals("BigDecimal conversion", new BigDecimal("8.34e+5"), obj);
+        obj = converter.convertFromString(BigInteger.class.getCanonicalName(),"47110815471108154711");
+        assertEquals("BigInteger conversion", new BigInteger("47110815471108154711"), obj);
 
         obj = converter.convertFromString(Boolean.class.getCanonicalName(),"false");
         assertEquals("Boolean conversion",false,obj);
@@ -116,6 +124,25 @@ public class StringToObjectConverterTest {
 
         }
     }
+
+    @Test
+    public void urlConversion(){
+     	URL url = null;
+    	try {
+    		url = new URL("http://google.com");
+    	} catch (MalformedURLException e) {}     	
+        Object object = converter.convertFromString(URL.class.getCanonicalName(),"http://google.com");
+        assertEquals("URL conversion", url, object);
+    }
+    
+    
+    @Test
+    public void enumConversion() {
+        ConfigKey key = (ConfigKey) converter.prepareValue(ConfigKey.class.getName(), "MAX_DEPTH");
+        assertEquals(key, ConfigKey.MAX_DEPTH);
+    }
+
+
 
     @Test
     public void dateConversion() {
@@ -243,5 +270,86 @@ public class StringToObjectConverterTest {
         list.add(10);
         list.add(null);
         converter.prepareValue("[I",list);
+    }
+    
+    public static class Example {
+    	private String value;
+    	private List<String> list;
+    	
+    	public Example(String value) { this.value = value; }
+    	public Example(List<String> list) { this.list = list; }
+    	
+    	public String getValue() { return value; }
+    	public List<String> getList() { return list; }
+    }
+    
+    public static class PrivateExample {
+    	private String value;
+    	private PrivateExample(String value) { this.value = value; }
+    	public String getValue() { return value; }
+    }
+    
+    public static class MultipleConstructorExample {
+    	private String value;
+    	private List<String> list;
+    	
+    	public MultipleConstructorExample(String value, List<String> list) { 
+    		this.value = value;
+    		this.list = list;
+    	}
+    	
+    	public String getValue() { return value; }
+    	public List<String> getList() { return list; }
+    }
+    
+    @Test
+    public void prepareValueWithConstructor() {
+    	Object o = converter.prepareValue(this.getClass().getCanonicalName() + "$Example", "test");
+    	assertTrue(o instanceof Example);
+    	assertEquals("test", ((Example)o).getValue());
+    }
+    
+    @Test
+    public void prepareValueWithConstructorList() {
+    	Object o = converter.prepareValue(this.getClass().getCanonicalName() + "$Example", Arrays.asList("test"));
+    	assertTrue(o instanceof Example);
+    	assertNull(((Example)o).getList());
+    	assertEquals("[test]", ((Example)o).getValue());
+    }
+    
+    @Test(expectedExceptions = IllegalArgumentException.class, 
+    	  expectedExceptionsMessageRegExp = "Cannot convert string test to type "
+      	  		+ "org.jolokia.converter.object.StringToObjectConverterTest\\$PrivateExample "
+      	  		+ "because no converter could be found")
+    public void prepareValueWithPrivateExample() {
+    	converter.prepareValue(this.getClass().getCanonicalName() + "$PrivateExample", "test");
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class,
+    	  expectedExceptionsMessageRegExp = "Cannot convert string test to type "
+    	  		+ "org.jolokia.converter.object.StringToObjectConverterTest\\$MultipleConstructorExample "
+    	  		+ "because no converter could be found")
+    public void prepareValueWithMultipleConstructors() {
+    	converter.prepareValue(this.getClass().getCanonicalName() + "$MultipleConstructorExample", "test");
+    }
+    
+    @Test
+    public void dateConversionNotByConstructor() throws ParseException {
+    	final String dateStr = "2015-11-20T00:00:00+00:00";
+    	
+    	try {
+    		new Date(dateStr);
+    		fail("Should have throw IllegalArgumentException");
+    	} catch (IllegalArgumentException ignore) {}
+    	
+    	// new Date(dateStr) will throw IllegalArgumentException but our convert does not. 
+    	// so it does not use Constructor to convert date
+    	Object obj = converter.convertFromString(Date.class.getCanonicalName(), dateStr);
+    	assertNotNull(obj);
+    	assertTrue(obj instanceof Date);
+
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssZ");
+    	Date expectedDate = sdf.parse(dateStr.replaceFirst("\\+(0\\d)\\:(\\d{2})$", "+$1$2"));
+    	assertEquals(expectedDate, obj);
     }
 }

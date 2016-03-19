@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2009-2013 Roland Huss
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~       http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
 <section id="agents-osgi">
   <title>OSGi Agents</title>
     <sidebar>There are several free implementations available of OSGi
@@ -113,8 +129,11 @@
       logging needs.
     </para>
     <para>
-      The Jolokia OSGi bundle can be configured via the properties which
-      typically can be configured in a global configuration file of
+      The Jolokia OSGi bundle can be configured via the OSGi Configuration Admin
+      service using the PID <literal>org.jolokia.osgi</literal>
+      (e.g. if using Apache Karaf, place properties in
+      <literal>etc/org.jolokia.osgi.cfg</literal>), or alternatively via global
+      properties which typically can be configured in a configuration file of
       the OSGi container. All properties start with the prefix
       <literal>org.jolokia</literal> and are listed in <xref
       linkend="table-agents-osgi-properties"/>. They are mostly the
@@ -146,6 +165,26 @@
         <td>org.jolokia.agentContext</td>
         <td>/jolokia</td>
         <td>Context path of the agent servlet</td>
+      </tr>
+      <tr>
+        <td>org.jolokia.agentId</td>
+        <td></td>
+        <td>
+          A unique ID for this agent. By default a unique id is
+          calculated. If provided it should be ensured that this id is
+          unique among all agent reachable via multicast requests used
+          by the discovery mechanism. It is recommended not to set
+          this value. Within the <literal>agentId</literal> specification you
+          can use the same placeholders as in <literal>discoveryAgentUrl</literal>.
+        </td>        
+      </tr>
+      <tr>
+        <td>org.jolokia.agentDescription</td>
+        <td></td>
+        <td>
+          An optional description which can be used for clients to
+          present a humand readable label for this agent.
+        </td>        
       </tr>
       <tr>
         <td>org.jolokia.dispatcherClasses</td>
@@ -247,6 +286,46 @@
         </td>
       </tr>
       <tr>
+        <td>org.jolokia.canonicalNaming</td>
+        <td>true</td>
+        <td>
+          This option specifies in which order the key-value
+          properties within ObjectNames as returned by
+          <constant>list</constant> or <constant>search</constant> are
+          returned. By default this is the so called 'canonical order'
+          in which the keys are sorted alphabetically. If this option
+          is set to <constant>false</constant>, then the natural order
+          is used, i.e. the object name as it was registered. This
+          option can be overridden with a query parameter of the same
+          name.
+        </td>
+      </tr>
+      <tr>
+        <td>org.jolokia.includeStackTrace</td>
+        <td>true</td>
+        <td>
+          Whether to include a stacktrace of an exception in case of
+          an error. By default it it set to <constant>true</constant>
+          in which case the stacktrace is always included. If set to
+          <constant>false</constant>, no stacktrace is included. If
+          the value is <constant>runtime</constant> a stacktrace is
+          only included for RuntimeExceptions. This global option can
+          be overridden with a query parameter.
+        </td>
+      </tr>
+      <tr>
+        <td>org.jolokia.serializeException</td>
+        <td>false</td>
+        <td>
+          When this parameter is set to <constant>true</constant>,
+          then an exception thrown will be serialized as JSON and
+          included in the response under the key
+          <constant>error_value</constant>. No stactrace infornmation
+          will be included, though. This global option can be
+          overridden by a query parameter of the same name.
+        </td>
+      </tr>
+      <tr>
         <td>org.jolokia.detectorOptions</td>
         <td></td>
         <td>
@@ -255,6 +334,56 @@
           <xref linkend="agent-war-init-params"/> for details. 
         </td>
       </tr>
+      <tr>
+        <td>org.jolokia.discoveryEnabled</td>
+        <td>false</td>
+        <td>
+          Is set to <literal>true</literal> then this servlet will
+          listen for multicast request (multicastgroup 239.192.48.84,
+          port 24884). By default this option is disabled in order to
+          avoid conflicts with an JEE standards (though this should't
+          harm anyways). This option can also be switched on with an 
+          environment variable
+          <literal>JOLOKIA_DISCOVERY</literal> or the system
+          property <literal>jolokia.discoveryEnabled</literal> set to
+          <literal>true</literal>.
+        </td>
+      </tr>
+      <tr>
+        <td>org.jolokia.discoveryAgentUrl</td>
+        <td></td>
+        <td>
+          Sets the URL to respond for multicast discovery requests. If
+          given, <constant>discoveryEnabled</constant> is set
+          implicetly to true. This URL can also be provied by an
+          environment variable
+          <literal>JOLOKIA_DISCOVERY_URL</literal> or the system
+          property <literal>jolokia.discoveryUrl</literal>. Within the value you can use the
+          placeholders <literal>${host}</literal> and <literal>${ip}</literal> which gets replaced
+          by the autodetected local host name/address. Also with <literal>${env:ENV_VAR}</literal> and
+          <literal>${sys:property}</literal> environment and system properties can be referenced, respectively.
+        </td>
+      </tr>
+      <tr>
+        <td>org.jolokia.realm</td>
+        <td>jolokia</td>
+        <td>
+          Sets the security realm to use. If the <constant>authMode</constant> is set to
+          <literal>jaas</literal> this is also used as value for the security domain.
+          E.g. for Karaf 3 and later, this realm should be <literal>karaf</literal> since
+          all JMX MBeans are guarded by this security domain.
+        </td>
+      </tr>
+       <tr>
+         <td>org.jolokia.authMode</td>
+         <td>basic</td>
+         <td>
+           Can be either <literal>basic</literal> (the default) or <literal>jaas</literal>. If
+           <literal>jaas</literal> is used, the user and password given in the <literal>Authorization:</literal>
+           header are used for loging in via JAAS and, if successful, the return subject is used for all Jolokia operation.
+           This has only an effect, if user is set.
+         </td>
+        </tr>
     </table>
     <para>
       This bundle also exports the service

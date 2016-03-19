@@ -8,3 +8,9 @@ target
 .classpath
 /classes/
 .idea
+wiki
+felix
++.settings
++.classpath
++.project
+.gitshots

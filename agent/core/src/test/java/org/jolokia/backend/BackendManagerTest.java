@@ -1,27 +1,31 @@
 package org.jolokia.backend;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import java.io.IOException;
-import java.util.HashMap;
+import java.net.SocketException;
+import java.net.UnknownHostException;
 import java.util.Map;
 
 import javax.management.*;
 
+import org.jolokia.backend.executor.NotChangedException;
+import org.jolokia.config.ConfigKey;
+import org.jolokia.config.Configuration;
 import org.jolokia.converter.Converters;
 import org.jolokia.detector.ServerHandle;
 import org.jolokia.request.JmxRequest;
@@ -29,6 +33,7 @@ import org.jolokia.request.JmxRequestBuilder;
 import org.jolokia.restrictor.Restrictor;
 import org.jolokia.util.*;
 import org.json.simple.JSONObject;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
@@ -37,13 +42,21 @@ import static org.testng.Assert.*;
  * @author roland
  * @since Jun 15, 2010
  */
-public class BackendManagerTest implements LogHandler {
+public class BackendManagerTest {
 
+    Configuration config;
+
+    private LogHandler log = new LogHandler.StdoutLogHandler(true);
+
+    @BeforeTest
+    public void setup() {
+        config = new Configuration(ConfigKey.AGENT_ID,"test");
+    }
     @Test
     public void simpleRead() throws MalformedObjectNameException, InstanceNotFoundException, IOException, ReflectionException, AttributeNotFoundException, MBeanException {
-        Map config = new HashMap();
-        config.put(ConfigKey.DEBUG,"true");
-        BackendManager backendManager = new BackendManager(config, this);
+        Configuration config = new Configuration(ConfigKey.DEBUG,"true",ConfigKey.AGENT_ID,"test");
+
+        BackendManager backendManager = new BackendManager(config, log);
         JmxRequest req = new JmxRequestBuilder(RequestType.READ,"java.lang:type=Memory")
                 .attribute("HeapMemoryUsage")
                 .build();
@@ -53,9 +66,18 @@ public class BackendManagerTest implements LogHandler {
     }
 
     @Test
+    public void notChanged() throws MalformedObjectNameException, MBeanException, AttributeNotFoundException, ReflectionException, InstanceNotFoundException, IOException {
+        Configuration config = new Configuration(ConfigKey.DISPATCHER_CLASSES,RequestDispatcherTest.class.getName(),ConfigKey.AGENT_ID,"test");
+        BackendManager backendManager = new BackendManager(config, log);
+        JmxRequest req = new JmxRequestBuilder(RequestType.LIST).build();
+        JSONObject ret = backendManager.handleRequest(req);
+        assertEquals(ret.get("status"), 304);
+        backendManager.destroy();
+    }
+
+    @Test
     public void lazyInit() throws MalformedObjectNameException, InstanceNotFoundException, IOException, ReflectionException, AttributeNotFoundException, MBeanException {
-        Map config = new HashMap();
-        BackendManager backendManager = new BackendManager(config, this, null, true /* Lazy Init */ );
+        BackendManager backendManager = new BackendManager(config, log, null, true /* Lazy Init */ );
 
         JmxRequest req = new JmxRequestBuilder(RequestType.READ,"java.lang:type=Memory")
                 .attribute("HeapMemoryUsage")
@@ -68,9 +90,8 @@ public class BackendManagerTest implements LogHandler {
 
     @Test
     public void requestDispatcher() throws MalformedObjectNameException, InstanceNotFoundException, IOException, ReflectionException, AttributeNotFoundException, MBeanException {
-        Map<ConfigKey,String> config = new HashMap<ConfigKey, String>();
-        config.put(ConfigKey.DISPATCHER_CLASSES,RequestDispatcherTest.class.getName());
-        BackendManager backendManager = new BackendManager(config, this);
+        config = new Configuration(ConfigKey.DISPATCHER_CLASSES,RequestDispatcherTest.class.getName(),ConfigKey.AGENT_ID,"test");
+        BackendManager backendManager = new BackendManager(config, log);
         JmxRequest req = new JmxRequestBuilder(RequestType.READ,"java.lang:type=Memory").build();
         backendManager.handleRequest(req);
         assertTrue(RequestDispatcherTest.called);
@@ -79,22 +100,20 @@ public class BackendManagerTest implements LogHandler {
 
     @Test(expectedExceptions = IllegalArgumentException.class,expectedExceptionsMessageRegExp = ".*invalid constructor.*")
     public void requestDispatcherWithWrongDispatcher() throws MalformedObjectNameException, InstanceNotFoundException, IOException, ReflectionException, AttributeNotFoundException, MBeanException {
-        Map<ConfigKey,String> config = new HashMap<ConfigKey, String>();
-        config.put(ConfigKey.DISPATCHER_CLASSES,RequestDispatcherWrong.class.getName());
-        BackendManager backendManager = new BackendManager(config,this);
+        Configuration config = new Configuration(ConfigKey.DISPATCHER_CLASSES,RequestDispatcherWrong.class.getName(),ConfigKey.AGENT_ID,"test");
+        new BackendManager(config,log);
     }
 
     @Test(expectedExceptions = IllegalArgumentException.class,expectedExceptionsMessageRegExp = ".*blub.bla.Dispatcher.*")
     public void requestDispatcherWithUnkownDispatcher() throws MalformedObjectNameException, InstanceNotFoundException, IOException, ReflectionException, AttributeNotFoundException, MBeanException {
-        Map<ConfigKey,String> config = new HashMap<ConfigKey, String>();
-        config.put(ConfigKey.DISPATCHER_CLASSES,"blub.bla.Dispatcher");
-        BackendManager backendManager = new BackendManager(config,this);
+        Configuration config = new Configuration(ConfigKey.DISPATCHER_CLASSES,"blub.bla.Dispatcher",ConfigKey.AGENT_ID,"test");
+        new BackendManager(config,log);
     }
 
     @Test
     public void debugging() {
         RecordingLogHandler lhandler = new RecordingLogHandler();
-        BackendManager backendManager = new BackendManager(new HashMap(),lhandler);
+        BackendManager backendManager = new BackendManager(config,lhandler);
         lhandler.error = 0;
         lhandler.debug = 0;
         lhandler.info = 0;
@@ -110,45 +129,79 @@ public class BackendManagerTest implements LogHandler {
 
     @Test
     public void defaultConfig() {
-        Map config = new HashMap();
-        config.put(ConfigKey.DEBUG_MAX_ENTRIES,"blabal");
-        BackendManager backendManager = new BackendManager(config,this);
+        Configuration config = new Configuration(ConfigKey.DEBUG_MAX_ENTRIES,"blabal",ConfigKey.AGENT_ID,"test");
+        BackendManager backendManager = new BackendManager(config,log);
         backendManager.destroy();
     }
 
     @Test
     public void doubleInit() {
-        BackendManager b1 = new BackendManager(new HashMap<ConfigKey, String>(),this);
-        BackendManager b2 = new BackendManager(new HashMap<ConfigKey, String>(),this);
+        BackendManager b1 = new BackendManager(config,log);
+        BackendManager b2 = new BackendManager(config,log);
         b2.destroy();
         b1.destroy();
     }
 
     @Test
     public void remoteAccessCheck() {
-        BackendManager backendManager = new BackendManager(new HashMap<ConfigKey, String>(),this);
-        assertTrue(backendManager.isRemoteAccessAllowed("localhost","127.0.0.1"));
+        BackendManager backendManager = new BackendManager(config,log);
+        assertTrue(backendManager.isRemoteAccessAllowed("localhost", "127.0.0.1"));
         backendManager.destroy();
     }
 
     @Test
     public void corsAccessCheck() {
-        BackendManager backendManager = new BackendManager(new HashMap<ConfigKey, String>(),this);
-        assertTrue(backendManager.isCorsAccessAllowed("http://bla.com"));
+        BackendManager backendManager = new BackendManager(config,log);
+        assertTrue(backendManager.isOriginAllowed("http://bla.com", false));
         backendManager.destroy();
     }
 
-    public void debug(String message) {
-        System.out.println("D> " + message);
+    @Test
+    public void agentIdHost() throws SocketException, UnknownHostException {
+        Configuration myConfig = new Configuration(ConfigKey.AGENT_ID, "${host}");
+        BackendManager backendManager = new BackendManager(myConfig,log);
+        assertEquals(backendManager.getAgentDetails().getAgentId(), NetworkUtil.getLocalAddress().getHostName());
+        backendManager.destroy();
     }
 
-    public void info(String message) {
-        System.out.println("I> " + message);
+    @Test
+    public void agentIdIp() throws SocketException, UnknownHostException {
+        Configuration myConfig = new Configuration(ConfigKey.AGENT_ID, "${ip}");
+        BackendManager backendManager = new BackendManager(myConfig,log);
+        assertEquals(backendManager.getAgentDetails().getAgentId(), NetworkUtil.getLocalAddress().getHostAddress());
+        backendManager.destroy();
     }
 
-    public void error(String message, Throwable t) {
-        System.out.println("E> " + message);
-        t.printStackTrace(System.out);
+    @Test
+    public void agentIdSystemProperty()  {
+        System.setProperty("agentIdSystemProperty","test1234");
+        Configuration myConfig = new Configuration(ConfigKey.AGENT_ID, "${prop:agentIdSystemProperty}");
+        BackendManager backendManager = new BackendManager(myConfig,log);
+        assertEquals(backendManager.getAgentDetails().getAgentId(), "test1234");
+        backendManager.destroy();
+        System.clearProperty("agentIdSystemProperty");
+    }
+
+    @Test(enabled = false) // first env var could contain illegal characters ....
+    public void agentIdEnvironmentVariable() {
+        Map<String, String> env = System.getenv();
+        Map.Entry<String, String> entry = env.entrySet().iterator().next();
+        Configuration myConfig = new Configuration(ConfigKey.AGENT_ID, "${env:"+entry.getKey()+"}");
+        BackendManager backendManager = new BackendManager(myConfig, log);
+        assertEquals(backendManager.getAgentDetails().getAgentId(), entry.getValue());
+        backendManager.destroy();
+    }
+
+    @Test
+    public void convertError() throws MalformedObjectNameException {
+        BackendManager backendManager = new BackendManager(config,log);
+        Exception exp = new IllegalArgumentException("Hans",new IllegalStateException("Kalb"));
+        JmxRequest req = new JmxRequestBuilder(RequestType.READ,"java.lang:type=Memory").build();
+        JSONObject jsonError = (JSONObject) backendManager.convertExceptionToJson(exp,req);
+        assertTrue(!jsonError.containsKey("stackTrace"));
+        assertEquals(jsonError.get("message"),"Hans");
+        assertEquals(((JSONObject) jsonError.get("cause")).get("message"), "Kalb");
+        backendManager.destroy();
     }
 
     // =========================================================================================
@@ -162,12 +215,14 @@ public class BackendManagerTest implements LogHandler {
             assertNotNull(pRestrictor);
         }
 
-        public Object dispatchRequest(JmxRequest pJmxReq) throws InstanceNotFoundException, AttributeNotFoundException, ReflectionException, MBeanException, IOException {
+        public Object dispatchRequest(JmxRequest pJmxReq) throws InstanceNotFoundException, AttributeNotFoundException, ReflectionException, MBeanException, IOException, NotChangedException {
             called = true;
             if (pJmxReq.getType() == RequestType.READ) {
                 return new JSONObject();
             } else if (pJmxReq.getType() == RequestType.WRITE) {
                 return "faultyFormat";
+            } else if (pJmxReq.getType() == RequestType.LIST) {
+                throw new NotChangedException(pJmxReq);
             }
             return null;
         }

@@ -1,11 +1,13 @@
+package org.jolokia.detector;
+
 /*
- * Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,20 +16,18 @@
  * limitations under the License.
  */
 
-package org.jolokia.detector;
-
-import org.jolokia.util.ClassUtil;
-import org.json.simple.JSONObject;
-
-import javax.management.*;
-
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.net.URL;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import javax.management.*;
+
+import org.jolokia.backend.executor.MBeanServerExecutor;
+import org.jolokia.util.ClassUtil;
+import org.json.simple.JSONObject;
 
 /**
  * Detector for IBM Websphere 6 & 7 & 8
@@ -47,10 +47,11 @@ public class WebsphereDetector extends AbstractServerDetector {
     private boolean isWebsphere7 = ClassUtil.checkForClass("com.ibm.websphere.management.AdminContext");
     private boolean isWebsphere6 = isWebsphere && !isWebsphere7;
 
-    /** {@inheritDoc} */
-    public ServerHandle detect(Set<MBeanServer> pMbeanServers) {
+    /** {@inheritDoc}
+     * @param pMBeanServerExecutor*/
+    public ServerHandle detect(MBeanServerExecutor pMBeanServerExecutor) {
         String serverVersion =
-                getSingleStringAttribute(pMbeanServers, "*:j2eeType=J2EEServer,type=Server,*", "serverVersion");
+                getSingleStringAttribute(pMBeanServerExecutor, "*:j2eeType=J2EEServer,type=Server,*", "serverVersion");
         if (serverVersion != null && serverVersion.contains("WebSphere")) {
             Matcher matcher = SERVER_VERSION_PATTERN.matcher(serverVersion);
             if (matcher.find()) {
@@ -60,30 +61,30 @@ public class WebsphereDetector extends AbstractServerDetector {
                 if (date != null) {
                     extraInfo.put("buildDate",date);
                 }
-                return new WebsphereServerHandle(version,null,extraInfo.size() > 0 ? extraInfo : null);
+                return new WebsphereServerHandle(version, extraInfo.size() > 0 ? extraInfo : null);
             }
             return null;
         } else if (isWebsphere) {
-            return new WebsphereServerHandle(isWebsphere6 ? "6" : "7 or 8",null,null);
+            return new WebsphereServerHandle(isWebsphere6 ? "6" : "7 or 8", null);
         }
         return null;
     }
 
-    /** {@inheritDoc} */
+    /** {@inheritDoc}
+     * @param servers*/
     @Override
-    public void addMBeanServers(Set<MBeanServer> servers) {
+    public void addMBeanServers(Set<MBeanServerConnection> servers) {
         try {
             /*
 			 * this.mbeanServer = AdminServiceFactory.getMBeanFactory().getMBeanServer();
 			 */
-            Class adminServiceClass = getClass().getClassLoader().loadClass("com.ibm.websphere.management.AdminServiceFactory");
-            Method getMBeanFactoryMethod = adminServiceClass.getMethod("getMBeanFactory", new Class[0]);
-            Object mbeanFactory = getMBeanFactoryMethod.invoke(null);
-            Method getMBeanServerMethod = mbeanFactory.getClass().getMethod("getMBeanServer", new Class[0]);
-            servers.add((MBeanServer) getMBeanServerMethod.invoke(mbeanFactory));
-        }
-        catch (ClassNotFoundException ex) {
-            // Expected if not running under WAS
+            Class adminServiceClass = ClassUtil.classForName("com.ibm.websphere.management.AdminServiceFactory",getClass().getClassLoader());
+            if (adminServiceClass != null) {
+                Method getMBeanFactoryMethod = adminServiceClass.getMethod("getMBeanFactory", new Class[0]);
+                Object mbeanFactory = getMBeanFactoryMethod.invoke(null);
+                Method getMBeanServerMethod = mbeanFactory.getClass().getMethod("getMBeanServer", new Class[0]);
+                servers.add((MBeanServer) getMBeanServerMethod.invoke(mbeanFactory));
+            }
         }
         catch (InvocationTargetException ex) {
             // CNFE should be earlier
@@ -103,8 +104,8 @@ public class WebsphereDetector extends AbstractServerDetector {
     class WebsphereServerHandle extends ServerHandle {
 
         /** {@inheritDoc} */
-        public WebsphereServerHandle(String pVersion, URL pAgenturl, Map<String, String> pExtrainfo) {
-            super("IBM","websphere", pVersion, pAgenturl, pExtrainfo);
+        public WebsphereServerHandle(String pVersion, Map<String, String> pExtrainfo) {
+            super("IBM","websphere", pVersion, pExtrainfo);
         }
 
         /** {@inheritDoc} */

@@ -8,19 +8,19 @@ import javax.management.ObjectName;
 import org.jolokia.request.*;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 
@@ -126,7 +126,7 @@ public class HistoryKey implements Serializable {
         target = sanitize(pTarget);
     }
 
-    // Return null
+    // Return null for an empty string
     private String sanitize(String pValue) {
         return "".equals(pValue) ? null : pValue;
     }
@@ -140,11 +140,12 @@ public class HistoryKey implements Serializable {
      * @param pTarget optional proxy target
      * @throws MalformedObjectNameException if the mbean name is invalid
      */
-    public HistoryKey(String pMBean, String pAttribute, String pPath,String pTarget) throws MalformedObjectNameException {
+    public HistoryKey(String pMBean, String pAttribute, String pPath, String pTarget)
+            throws MalformedObjectNameException {
         type = "attribute";
         mBean = new ObjectName(pMBean);
         secondary = pAttribute;
-        path = pPath;
+        path = sanitize(pPath);
         target = pTarget;
     }
 

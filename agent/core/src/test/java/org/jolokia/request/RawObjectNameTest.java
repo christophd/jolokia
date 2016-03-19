@@ -1,19 +1,19 @@
 package org.jolokia.request;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import java.util.*;
@@ -23,6 +23,8 @@ import java.util.regex.Pattern;
 import javax.management.MalformedObjectNameException;
 
 import org.jolokia.backend.BackendManager;
+import org.jolokia.config.ConfigKey;
+import org.jolokia.config.Configuration;
 import org.jolokia.util.*;
 import org.json.simple.*;
 import org.testng.annotations.AfterClass;
@@ -34,51 +36,39 @@ import static org.testng.Assert.*;
 /**
  */
 public class RawObjectNameTest {
-    private Map config = new HashMap();
-    private LogHandler logHandler = new LogHandler() {
-        public void debug(String message) {
-            System.out.println("[DEBUG] " + message);
-        }
+    private Configuration config     = new Configuration(ConfigKey.AGENT_ID, UUID.randomUUID().toString());
+    private LogHandler    logHandler = new LogHandler.StdoutLogHandler(false);
 
-        public void info(String message) {
-            System.out.println("[INFO] " + message);
-        }
-
-        public void error(String message, Throwable t) {
-            System.out.println("[ERROR] " + message);
-            t.printStackTrace();
-        }
-    };
-
-    private BackendManager backendManager = new BackendManager(config, logHandler, null, true /* Lazy Init */ );
+    private BackendManager backendManager = new BackendManager(config, logHandler, null, true /* Lazy Init */);
 
     @Test
     public void testListRawObjectNameAccess() throws Exception {
-        assertPropertyNamesOrderedCorrectly(listRequestBuilder(),false);
+        assertPropertyNamesOrderedCorrectly(listRequestBuilder(), false);
     }
 
     @Test
     public void testListCanonicalNameAccess() throws Exception {
-        assertPropertyNamesOrderedCorrectly(listRequestBuilder(),true);
+        assertPropertyNamesOrderedCorrectly(listRequestBuilder(), true);
     }
 
     @Test
     public void testReadRawObjectNameAccess() throws Exception {
-        assertPropertyNamesOrderedCorrectly(readRequestBuilder(),false);
+        assertPropertyNamesOrderedCorrectly(readRequestBuilder(), false);
     }
 
     @Test
     public void testReadCanonicalNameAccess() throws Exception {
-        assertPropertyNamesOrderedCorrectly(readRequestBuilder(),true);
+        assertPropertyNamesOrderedCorrectly(readRequestBuilder(), true);
     }
+
     @Test
     public void testSearchRawObjectNameAccess() throws Exception {
-        assertPropertyNamesOrderedCorrectly(searchRequestBuilder(),false);
+        assertPropertyNamesOrderedCorrectly(searchRequestBuilder(), false);
     }
 
     @Test
     public void testSearchCanonicalNameAccess() throws Exception {
-        assertPropertyNamesOrderedCorrectly(searchRequestBuilder(),true);
+        assertPropertyNamesOrderedCorrectly(searchRequestBuilder(), true);
     }
 
 

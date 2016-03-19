@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2009-2013 Roland Huss
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~       http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
 <document xmlns="http://maven.apache.org/XDOC/2.0"
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xsi:schemaLocation="http://maven.apache.org/XDOC/2.0 http://maven.apache.org/xsd/xdoc-2.0.xsd">
@@ -44,26 +60,26 @@
         </table>
         <p>
           This <code>test-app</code> is also configured for Jetty, so
-          a 
+          a
         </p>
         <pre>mvn jetty:run-exploded</pre>
         <p>
-          will startup a Jetty and deploy this test application. 
+          will startup a Jetty and deploy this test application.
         </p>
         <p>
           In order to simplify development of unit-test a shell script
           <code>makeLinks.sh</code> is included which can be used in
           unix like OSs to create symbolic links to the Javascript
           files in the source directories. A typical workflow looks
-          like:          
+          like:
         </p>
         <ul>
           <li>Initialize:
-          <pre>mvn clean install
-sh makeLinks.sh
-mvn jetty:run-exploded</pre></li>
+            <pre>mvn clean install
+              sh makeLinks.sh
+              mvn jetty:run-exploded</pre></li>
           <li>Edit and save the Javascript files (e.g. <code>jolokia.js</code>
-          or <code>jolokia-test.js</code>)</li>
+            or <code>jolokia-test.js</code>)</li>
           <li>Reload the test HTML files in the browser</li>
         </ul>
       </subsection>

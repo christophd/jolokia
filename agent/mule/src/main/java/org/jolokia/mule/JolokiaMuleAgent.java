@@ -1,26 +1,26 @@
 package org.jolokia.mule;
 
-import java.net.Inet4Address;
-import java.net.UnknownHostException;
+import java.io.IOException;
 
+import org.jolokia.util.NetworkUtil;
 import org.mule.AbstractAgent;
 import org.mule.api.MuleException;
 import org.mule.api.lifecycle.*;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 
@@ -34,7 +34,7 @@ import org.mule.api.lifecycle.*;
 public class JolokiaMuleAgent extends AbstractAgent implements MuleAgentConfig {
 
     // Internal HTTP-Server
-    private MuleAgentHttpServer server;
+    protected MuleAgentHttpServer server;
 
     protected JolokiaMuleAgent() {
         super("jolokia-agent");
@@ -81,9 +81,9 @@ public class JolokiaMuleAgent extends AbstractAgent implements MuleAgentConfig {
         String hostDescr = host;
         try {
             if (hostDescr == null) {
-                hostDescr = Inet4Address.getLocalHost().getHostName();
+                hostDescr = NetworkUtil.getLocalAddress().getHostName();
             }
-        } catch (UnknownHostException e) {
+        } catch (IOException e) {
             hostDescr = "localhost";
         }
         return "Jolokia Agent: http://" + hostDescr + ":" + getPort() + "/jolokia";
@@ -113,7 +113,7 @@ public class JolokiaMuleAgent extends AbstractAgent implements MuleAgentConfig {
      * @throws InitialisationException
      */
     public void initialise() throws InitialisationException {
-        server = new MuleAgentHttpServer(this,this);
+        server = MuleAgentHttpServerFactory.create(this, this);
     }
 
     // ===============================================================================
@@ -132,9 +132,9 @@ public class JolokiaMuleAgent extends AbstractAgent implements MuleAgentConfig {
     private boolean debug = false;
     private int historyMaxEntries = 10;
     private int debugMaxEntries = 100;
-    private int maxDepth = 5;
+    private int maxDepth = 15;
     private int maxCollectionSize = 0;
-    private int maxObjects = 10000;
+    private int maxObjects = 0;
 
     public String getHost() {
         return host;
@@ -215,5 +215,4 @@ public class JolokiaMuleAgent extends AbstractAgent implements MuleAgentConfig {
     public void setMaxObjects(int pMaxObjects) {
         maxObjects = pMaxObjects;
     }
-
 }

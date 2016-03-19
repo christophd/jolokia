@@ -1,11 +1,11 @@
 /*
- * Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,9 +16,7 @@
 
 package org.jolokia.util;
 
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.LineNumberReader;
+import java.io.*;
 import java.net.URL;
 import java.util.*;
 
@@ -48,14 +46,14 @@ public final class ServiceObjectFactory {
      * Create a list of services ordered according to the ordering given in the
      * service descriptor files. Note, that the descriptor will be looked up
      * in the whole classpath space, which can result in reading in multiple
-     * descriptors with a single path. Note, that the reading order for mutiple
+     * descriptors with a single path. Note, that the reading order for multiple
      * resources with the same name is not defined.
      *
      * @param pDescriptorPaths a list of resource paths which are handle in the given order.
      *        Normally, default service should be given as first parameter so that custom
      *        descriptors have a chance to remove a default service.
      * @param <T> type of the service objects to create
-     * @return a ordered list of created services.
+     * @return a ordered list of created services or an empty list.
      */
     public static <T> List<T> createServiceObjects(String... pDescriptorPaths) {
         try {
@@ -76,21 +74,20 @@ public final class ServiceObjectFactory {
 
     private static <T> void readServiceDefinitions(Map<ServiceEntry, T> pExtractorMap, String pDefPath) {
         try {
-            Enumeration<URL> resUrls = ServiceObjectFactory.class.getClassLoader().getResources(pDefPath);
-            while (resUrls.hasMoreElements()) {
-                readServiceDefinitionFromUrl(pExtractorMap, resUrls.nextElement());
+            for (String url : ClassUtil.getResources(pDefPath)) {
+                readServiceDefinitionFromUrl(pExtractorMap, url);
             }
         } catch (IOException e) {
             throw new IllegalStateException("Cannot load extractor from " + pDefPath + ": " + e,e);
         }
     }
 
-    private static <T> void readServiceDefinitionFromUrl(Map<ServiceEntry, T> pExtractorMap,URL pUrl) {
+    private static <T> void readServiceDefinitionFromUrl(Map<ServiceEntry, T> pExtractorMap, String pUrl) {
         String line = null;
         Exception error = null;
         LineNumberReader reader = null;
         try {
-            reader = new LineNumberReader(new InputStreamReader(pUrl.openStream()));
+            reader = new LineNumberReader(new InputStreamReader(new URL(pUrl).openStream(),"UTF8"));
             line = reader.readLine();
             while (line != null) {
                 createOrRemoveService(pExtractorMap, line);
@@ -133,9 +130,12 @@ public final class ServiceObjectFactory {
                     pExtractorMap.remove(key);
                 }
             } else {
-                Class<T> clazz = (Class<T>) ServiceObjectFactory.class.getClassLoader().loadClass(entry.getClassName());
+                Class<T> clazz = ClassUtil.classForName(entry.getClassName(),ServiceObjectFactory.class.getClassLoader());
+                if (clazz == null) {
+                    throw new ClassNotFoundException("Class " + entry.getClassName() + " could not be found");
+                }
                 T ext = (T) clazz.newInstance();
-                pExtractorMap.put(entry,ext);
+                pExtractorMap.put(entry, ext);
             }
         }
     }

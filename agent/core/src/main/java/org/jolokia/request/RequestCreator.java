@@ -20,6 +20,8 @@ import java.util.*;
 
 import javax.management.MalformedObjectNameException;
 
+import org.jolokia.config.ProcessingParameters;
+
 /**
  * Base class for so called <em>request creators</em>, which are used for creating
  * {@link JmxRequest}s of a specific type. These creators are used by the {@link JmxRequestFactory} for
@@ -41,7 +43,7 @@ abstract class RequestCreator<R extends JmxRequest> {
      * @return the created request object
      * @throws MalformedObjectNameException if an object name could not be created
      */
-    abstract R create(Stack<String> pStack, Map<String, String> pParams)
+    abstract R create(Stack<String> pStack, ProcessingParameters pParams)
             throws MalformedObjectNameException;
 
     /**
@@ -52,7 +54,7 @@ abstract class RequestCreator<R extends JmxRequest> {
      * @return the created request object
      * @throws MalformedObjectNameException if an object name could not be created
      */
-    abstract R create(Map<String, ?> requestMap, Map<String, String> pParams)
+    abstract R create(Map<String, ?> requestMap, ProcessingParameters pParams)
             throws MalformedObjectNameException;
 
 
@@ -68,7 +70,8 @@ abstract class RequestCreator<R extends JmxRequest> {
         }
         List<String> ret = new ArrayList<String>();
         while (!pElements.isEmpty()) {
-            ret.add(pElements.pop());
+            String element = pElements.pop();
+            ret.add("*".equals(element) ? null : element);
         }
         return ret;
     }

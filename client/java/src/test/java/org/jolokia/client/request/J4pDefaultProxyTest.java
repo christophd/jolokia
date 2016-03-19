@@ -1,11 +1,13 @@
+package org.jolokia.client.request;
+
 /*
- * Copyright 2009-2011 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,25 +16,14 @@
  * limitations under the License.
  */
 
-package org.jolokia.client.request;
-
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.jolokia.client.J4pClient;
-import org.jolokia.client.J4pClientBuilder;
-import org.jolokia.client.exception.J4pBulkRemoteException;
-import org.jolokia.client.exception.J4pConnectException;
-import org.jolokia.client.exception.J4pException;
-import org.jolokia.client.exception.J4pRemoteException;
-import org.json.simple.JSONObject;
-import org.testng.annotations.Test;
+import java.util.List;
 
 import javax.management.MalformedObjectNameException;
-import javax.management.ObjectName;
-import java.util.*;
-import java.util.concurrent.BrokenBarrierException;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.CyclicBarrier;
+
+import org.jolokia.client.J4pClient;
+import org.jolokia.client.J4pClientBuilder;
+import org.jolokia.client.exception.*;
+import org.testng.annotations.Test;
 
 import static org.testng.Assert.*;
 
@@ -78,6 +69,8 @@ public class J4pDefaultProxyTest extends AbstractJ4pIntegrationTest {
         J4pTargetConfig config = getTargetProxyConfig();
         return new J4pClientBuilder()
                 .url(url)
+                .user("jolokia")
+                .password("jolokia")
                 .pooledConnections()
                 .target(config.getUrl())
                 .build();

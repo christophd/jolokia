@@ -1,37 +1,39 @@
 package org.jolokia.jsr160;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-import org.jolokia.converter.*;
-import org.jolokia.request.JmxRequest;
+import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map;
+
+import javax.management.*;
+import javax.management.remote.*;
+import javax.naming.Context;
+
 import org.jolokia.backend.RequestDispatcher;
+import org.jolokia.backend.executor.MBeanServerExecutor;
+import org.jolokia.backend.executor.NotChangedException;
+import org.jolokia.converter.Converters;
 import org.jolokia.detector.ServerHandle;
 import org.jolokia.handler.JsonRequestHandler;
 import org.jolokia.handler.RequestHandlerManager;
+import org.jolokia.request.JmxRequest;
 import org.jolokia.request.ProxyTargetConfig;
 import org.jolokia.restrictor.Restrictor;
-
-import javax.management.*;
-import javax.management.remote.JMXConnector;
-import javax.management.remote.JMXConnectorFactory;
-import javax.management.remote.JMXServiceURL;
-import javax.naming.Context;
-import java.io.IOException;
-import java.util.*;
 
 /**
  * Dispatcher for calling JSR-160 connectors
@@ -69,17 +71,20 @@ public class Jsr160RequestDispatcher implements RequestDispatcher {
      * @throws IOException
      */
     public Object dispatchRequest(JmxRequest pJmxReq)
-            throws InstanceNotFoundException, AttributeNotFoundException, ReflectionException, MBeanException, IOException {
+            throws InstanceNotFoundException, AttributeNotFoundException, ReflectionException, MBeanException, IOException, NotChangedException {
 
         JsonRequestHandler handler = requestHandlerManager.getRequestHandler(pJmxReq.getType());
-        JMXConnector connector = getConnector(pJmxReq);
+        JMXConnector connector = null;
         try {
+            connector = createConnector(pJmxReq);
+            connector.connect();
             MBeanServerConnection connection = connector.getMBeanServerConnection();
             if (handler.handleAllServersAtOnce(pJmxReq)) {
                 // There is no way to get remotely all MBeanServers ...
-                return handler.handleRequest(new HashSet<MBeanServerConnection>(Arrays.asList(connection)),pJmxReq);
+                MBeanServerExecutor manager = new MBeanServerExecutorRemote(connection);
+                return handler.handleRequest(manager, pJmxReq);
             } else {
-                return handler.handleRequest(connection,pJmxReq);
+                return handler.handleRequest(connection, pJmxReq);
             }
         } finally {
             releaseConnector(connector);
@@ -87,21 +92,22 @@ public class Jsr160RequestDispatcher implements RequestDispatcher {
     }
 
     // TODO: Add connector to a pool and release it on demand. For now, simply close it.
-    private JMXConnector getConnector(JmxRequest pJmxReq) throws IOException {
+    private JMXConnector createConnector(JmxRequest pJmxReq) throws IOException {
         ProxyTargetConfig targetConfig = pJmxReq.getTargetConfig();
         if (targetConfig == null) {
             throw new IllegalArgumentException("No proxy configuration in request " + pJmxReq);
         }
         String urlS = targetConfig.getUrl();
         JMXServiceURL url = new JMXServiceURL(urlS);
+
         Map<String,Object> env = prepareEnv(targetConfig.getEnv());
-        JMXConnector ret = JMXConnectorFactory.newJMXConnector(url,env);
-        ret.connect();
-        return ret;
+        return JMXConnectorFactory.newJMXConnector(url,env);
     }
 
     private void releaseConnector(JMXConnector pConnector) throws IOException {
-        pConnector.close();
+        if (pConnector != null) {
+            pConnector.close();
+        }
     }
 
     /**

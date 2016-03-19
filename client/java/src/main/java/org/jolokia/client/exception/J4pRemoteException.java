@@ -1,22 +1,23 @@
 package org.jolokia.client.exception;
 
 /*
- *  Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 import org.jolokia.client.request.J4pRequest;
+import org.json.simple.JSONObject;
 
 /**
  * Exception occured on the remote side (i.e the server).
@@ -37,21 +38,38 @@ public class J4pRemoteException extends J4pException {
 
     // Java class of remote error
     private String errorType;
+    
+    // JSONObject containing value of the remote error
+    private JSONObject errorValue;
 
     /**
      * Constructor for a remote exception
      *
      * @param pMessage error message of the exception occurred remotely
-     * @param pErrorType
+     * @param pErrorType kind of error used
      * @param pStatus status code
      * @param pStacktrace stacktrace of the remote exception
      */
-    public J4pRemoteException(J4pRequest pJ4pRequest, String pMessage, String pErrorType, int pStatus, String pStacktrace) {
+    public J4pRemoteException(J4pRequest pJ4pRequest, String pMessage, String pErrorType, int pStatus, String pStacktrace, JSONObject pErrorValue) {
         super(pMessage);
         status = pStatus;
         errorType = pErrorType;
         remoteStacktrace = pStacktrace;
         request = pJ4pRequest;
+        errorValue = pErrorValue;
+    }
+
+    public J4pRemoteException(J4pRequest pJ4pRequest, JSONObject pJsonRespObject) {
+        super(pJsonRespObject.get("error") != null ?
+                      (String) pJsonRespObject.get("error") :
+                      "Invalid response received: " + pJsonRespObject.toJSONString()
+             );
+        Long statusL = (Long) pJsonRespObject.get("status");
+        status = statusL != null ? statusL.intValue() : 500;
+        request = pJ4pRequest;
+        errorType = (String) pJsonRespObject.get("error_type");
+        remoteStacktrace = (String) pJsonRespObject.get("stacktrace");
+        errorValue = (JSONObject) pJsonRespObject.get("error_value");
     }
 
     /**
@@ -91,4 +109,14 @@ public class J4pRemoteException extends J4pException {
     public J4pRequest getRequest() {
         return request;
     }
+
+    /**
+     * Get value of the remote error.
+     * 
+     * @return value of the remote error as JSON
+     */
+	public JSONObject getErrorValue() {
+		return errorValue;
+	}
+    
 }

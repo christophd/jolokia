@@ -39,14 +39,12 @@ abstract public class AbstractExtractorTest {
         extractor = createExtractor();
         stringToObjectConverter = new StringToObjectConverter();
         converter = new ObjectToJsonConverter(stringToObjectConverter,null);
-        converter.setupContext();
+        converter.setupContext(new JsonConvertOptions.Builder().useAttributeFilter(true).build());
     }
 
     @AfterMethod
     public void teardown() {
-        if (converter != null) {
-            converter.clearContext();
-        }
+        converter.clearContext();
     }
 
     protected Object extractJson(Object pValue,String ... extraArgs) throws AttributeNotFoundException {

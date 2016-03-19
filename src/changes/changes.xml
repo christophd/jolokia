@@ -1,4 +1,20 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!--
+  ~ Copyright 2009-2013 Roland Huss
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~       http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
 <document xmlns="http://maven.apache.org/changes/1.0.0"
           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
           xsi:schemaLocation="http://maven.apache.org/changes/1.0.0 http://maven.apache.org/xsd/changes-1.0.0.xsd">
@@ -7,6 +23,369 @@
     <author email="roland@jolokia.org">Roland Huß</author>
   </properties>
   <body>
+    <release version="1.3.3" description="Release 1.3.3" date="2016-02-16">
+      <action dev="dejanb" type="add" date="2016-01-15" issue="239">
+        Ignoring transient values during serialization when annotated
+        with @Transient
+      </action>
+      <action dev="arnabbiswas1" type="fix" date="2016-01-15" issue="150">
+        Treat null and empty paths the same when using HistoryKey
+      </action>
+      <action dev="arnabbiswas1" type="fix" date="2016-01-15" issue="221">
+        Fix race condition when initializing the agent details
+      </action>
+      <action dev="nevenr" type="fix" date="2016-01-17" issue="200">
+        Fix serialization of empty TabularData
+      </action>
+      <action dev="nevenr" type="add" date="2016-01-17" issue="224">
+        Allow custom restrictors for the JVM and WAR agent.
+      </action>
+      <action dev="nevenr" type="add" date="2016-01-17" issue="218">
+        Add missing SSL config options to Spring's jolokia-config.xsd
+      </action>
+      <action dev="nevenr" type="add" date="2016-01-18" issue="164">
+        Allow encrypted keystore passwords which can be created with
+        the "encrypt" command of the JVM agent.
+      </action>
+      <action dev="rhuss" type="add" date="2016-01-23" issue="234">
+        Add configuration option "allowDnsReverseLookup" which, if set
+        to false, will omit reverse DNS lookups during restrictor checking.
+        Default is "true" (for backwards compatibility).
+      </action>
+      <action dev="rhuss" type="add" date="2016-01-23" issue="240">
+        Add global configuration option "allowErrorDetails" which allows to avoid
+        the inclusion of stack traces and error details when set.
+      </action>
+    </release>
+    <release version="1.3.2" description="Release 1.3.2" date="2015-10-5">
+      <action dev="roland" type="add" date="2015-10-04">
+        Support for dynamically created, self-signed server
+        certificates when no server certificate is configured 
+      </action>
+      <action dev="arnabbiswas1" type="fix" date="2015-09-30" issue="204">
+        Add missing check for HTTP method in request handler.
+      </action>
+      <action dev="roland" type="add" date="2015-10-02">
+        Support for SSL authentication with restricting to given
+        client cert's  principals
+      </action>
+      <action dev="roland" type="add" date="2015-10-01">
+        Support for PEM certs and keys when using the JVM agent with
+        TLS 
+      </action>
+      <action dev="zisili" type="update" date="2015-09-14" issue="214">
+        Enhanced 'GlassfishDetector' for Payara flavour of glassfish
+      </action>
+      <action dev="nevenr" type="add" date="2015-07-02" issue="199">
+        Allow environment placeholders in "agentId"
+      </action>
+    </release>
+    <release version="1.3.1" description="Release 1.3.1" date="2015-05-28">
+      <action dev="roland" type="add" date="2015-05-27" issue="197">
+        Added a DelegatingAuthenticator which passes a request's Authorization: header to a delegate URL for
+        verification (like it is done for OAuth2 resource verification in OpenShift)
+      </action>
+      <action dev="roland" type="fix" date="2015-05-27">
+        Update Mule dependency to mule-core:2.6.0 since some older transitive dependencies has been vanished from
+        Maven central
+      </action>
+      <action dev="roland" type="fix" date="2015-05-27" issue="187">
+        Fixed default for 'maxCollections' to unlimited (was still set to 1000)
+      </action>
+      <action dev="roland" type="update" date="2015-05-27">
+        Changed config parameter 'authenticatorClass' to 'authClass' for consistencies sake.
+      </action>
+    </release>
+    <release version="1.3.0" description="Release 1.3.0" date="2015-05-07">
+      <action dev="roland" type="fix" date="2015-05-06" issue="187">
+        Removed default truncation on 1000 collection elements as defined for the WAR agent in web.xml. Truncation
+        can be enabled by setting the config parameter maxCollectionSize in web.xml to a value greater than 0.
+      </action>
+      <action dev="roland" type="fix" date="2015-05-06" issue="193">
+        Fixed setting of "secured" flag when doing autodiscovery with the servlet agent. It will be now
+        always be set after the first HTTP request has been served.
+      </action>
+      <action dev="roland" type="fix" date="2015-05-05" issue="192">
+        Fixed resolving of Spring EL expressions (#{ ... }) when Jolokia's Spring configuration
+        schema is used
+      </action>
+      <action dev="roland" type="add" date="2015-03-05" issue="182">
+        Added support for Mule 3.6 (which contains Jetty 9)
+      </action>
+      <action dev="roland" type="fix" date="2015-03-05" issue="184">
+        Fix race condition when creating response date headers
+      </action>
+      <action dev="khaing211" type="add" date="2015-02-01" issue="183">
+        Support for constructor based serialization conversion
+      </action>
+      <action dev="jcordes73" type="fix" date="2015-01-10" issue="178">
+       Fix for weird InstanceNotFoundException on JBoss EAP 6.3 when doing a "list" 
+      </action>
+      <action dev="roland" type="add" date="2015-01-13" issue="177">
+        Added MBeanPlugin as a way to hook into the agent's lifecyle
+      </action>
+      <action dev="erwelch" type="add" date="2015-01-03">
+        OSGi agent can read properties from Configuration Admin service with PID org.jolokia.osgi
+      </action>
+      <action dev="roland" type="add" date="2014-12-23" issue="173">
+        Added the possibility to hook into the deserialization process
+        for responses (Java client).
+      </action>
+      <action dev="nevenr" type="add" date="2014-12-11" issue="169">
+        Allow a proxy to be specified in J4pClientBuilder
+      </action>
+    </release>
+    <release version="1.2.3" description="Release 1.2.3" date="2014-11-08">
+      <action dev="nevenr" type="fix" date="2014-10-21" issue="166">
+        JVM Agent and SSL client authentication fixed
+      </action>
+      <action dev="nevenr" type="add" date="2014-10-21" issue="167">
+        Enabling additional configuration parameters for HTTPS
+      </action>
+      <action dev="ogis-nakagawa" type="add" date="2014-10-18" issue="165">
+        Added support for Mule ESB 3.5
+      </action>
+      <action dev="roland" type="fix" date="2014-09-03" issue="158">
+        Missing attributes in multi attribute read won't croak with an error anymore when "ignoreErrors"
+        is used.
+      </action>
+      <action dev="roland" type="add" date="2014-08-18" issue="156">
+        Allow system property and environment expansion of the value specified with "policyLocation".
+      </action>
+      <action dev="roland" type="fix" date="2014-08-18" issue="155">
+        Fixed MulticastSocketListenerThread to be a daemon thread so that it doesn't
+        prevent the shutdown of the JVM
+      </action>
+      <action dev="roland" type="fix" date="2014-07-01" issue="154">
+        Lookup system resources when no class loader is available (e.g. because
+        Jolokia is on the bootstrap classpath)
+      </action>
+    </release>
+    <release version="1.2.2" description="Release 1.2.2" date="2014-06-14">
+      <action dev="roland" type="fix" date="2014-06-06" issue="138">
+        Added missing configuration options to the configuration XSD for the
+        spring config name space.
+      </action>
+      <action dev="roland" type="fix" date="2014-06-04" issue="142">
+        Fixed endless loop when using debugInfo
+      </action>
+      <action dev="roland" type="add" date="2014-06-03" issue="106">
+        Added wildcard ("*") support for pathes in order to skip 'levels'
+      </action>
+      <action dev="roland" type="add" date="2014-05-23" issue="141">
+        Added possibility to add a custom authenticator for the Java client. The standard implementation uses
+        Basic Authentication and allows also to use preemptive authentication.
+      </action>
+      <action dev="roland" type="update" date="2014-05-21" issue="137">
+        Updated json-simple to version 1.1.1. Although it has a bogus dependency declaration on junit, it comes
+        with a proper OSGi Manifest. The jUnit dependency is excluded by us, so this should be safe.
+      </action>
+    </release>
+    <release version="1.2.1" description="Release 1.2.1" date="2014-04-29">
+      <action dev="roland" type="add" date="2014-04-24">
+        Added "strict-checking" for jolokia-access.xml in the CORS
+        section in order to enable server side origin checking, too.
+      </action>
+      <action dev="roland" type="fix" date="2014-04-10" issue="123">
+        Fixed issue with JBoss 4.2.3 and JNDI lookups.
+      </action>
+      <action dev="cymantic" type="update" date="2014-04-10" issue="122">
+        Update Java client for usage with Apache Http Components >= 4.3. Please stick to Jolokia &gt;= 1.2.0 for the
+        Java client if you need to use Apache Http Client libraries &lt; 4.3. These will also work with the 1.2.1 agent.
+      </action>
+      <action dev="roland" type="add" date="2014-04-04" issue="133">
+        Added a server detector for ActiveMQ.
+      </action>
+      <action dev="roland" type="fix" date="2014-03-30" issue="135">
+        Cleaned up warnings for multicast discovery request failures.
+      </action>
+      <action dev="roland" type="add" date="2014-03-30" issue="134">
+        Allow for placeholders in "discoveryAgentUrl" configuration to be filled with environment
+        variables and system properties.
+      </action>
+      <action dev="roland" type="fix" date="2014-03-29" issue="132">
+        Fixed typo in Spring configuration for automatic agent startup.
+      </action>
+    </release>
+    <release version="1.2.0" description="Release 1.2.0" date="2014-02-24">
+      <action dev="roland" type="add" date="2014-02-14" issue="127">
+        Agents can be configured to answer to discovery multicast request with there URL. This
+        features is enabled by default for the JVM agent, and must enabled for the WAR
+        agent with a configuration option.
+      </action>
+      <action dev="roland" type="add" date="2014-02-14" issue="127">
+        New MBean "jolokia:type=Discovery" for sending multicast request for detecting other agents.
+      </action>
+      <action dev="roland" type="update" date="2014-02-14">
+        "version" command response contains configuration information which differs from the default values. In
+        addition "agentType", "agentDescription" and "agentId" are added as possible configuration
+        options.
+      </action>
+    </release>
+    <release version="1.1.5" description="Release 1.1.5" date="2013-11-08">
+      <action dev="roland" type="fix" date="2013-10-14" issue="63">
+        Fixed Glassfish detector's lazy initialization of the AMX boot system.
+      </action>
+    </release>
+    <release version="1.1.4" description="Release 1.1.4" date="2013-10-03">
+      <action dev="jhermann" type="fix" date="2013-09-27" issue="116">
+        Ignore Daemon Thread from Tanunki JSW when deciding whether the agent should shut down or not
+      </action>
+      <action dev="roland" type="fix" date="2013-09-27" issue="117">
+        Fixed InstanceNotFoundExceptions in case of a multiple attribute read, for the case that an MBean
+        get deregistered between being included in the search result set and the actual query.
+      </action>
+      <action dev="georgy" type="add" date="2013-09-25" issue="115">
+        Introduced new configuration parameter "authenticatorClass" which can be used to provide custom authenticator
+        for JVM agent.
+      </action>
+      <action dev="roland" type="add" date="2013-09-02">
+        Introduced new configuration parameter "logHandlerClass" which can be used to specify an alternate
+        LogHandler for the WAR and JVM agent. Also, if the JVM agent is used programmatically, a LogHandler
+        instance can be provided during construction time.
+      </action>
+    </release>
+    <release version="1.1.3" description="Release 1.1.3" date="2013-07-30">
+      <action dev="roland" type="fix" date="2013-06-07">
+        Fixed issue wit the new CORS authentication in jolokia.js.
+      </action>
+      <action dev="roland" type="add" issue="108" date="2013-06-07">
+        The authenticator for the JVM Agent can now be specified via the configuration in order
+        to provide a custom authenticator which goes beyond simple BasicAuthentication.
+      </action>
+      <action dev="roland" type="add" date="2013-06-07">
+        Added the possibility to provide an external HttpServer when creating the JvmAgent.
+      </action>
+    </release>
+    <release version="1.1.2" description="Release 1.1.2" date="2013-05-28">
+      <action dev="roland" type="fix" issue="105" date="2013-05-05">
+        Conversion for TabularData optimized. If any index of an TabularData
+        structure is not a SimpleType, then a direct serialization of the Tabular
+        Data (i.e. an JSON Object with two entries "indexNames" and "values" is created).
+        Otherwise, if it is the representation of an MXBean Map attribute, the map is recreated,
+        otherwise, nested maps are used for simple acces. More on this in the
+        reference manual.
+      </action>
+      <action dev="roland" type="fix" issue="104" date="2013-05-03">
+        Added extra CORS header for allowing authentication during Ajax CORS access.
+      </action>
+      <action dev="roland" type="fix" issue="97" date="2013-04-18">
+        Added support for non-string keys when serializing TabularData
+        (i.e. long, int, short, byte, ObjectName).
+      </action>
+      <action dev="roland" type="fix" date="2013-04-16">
+        Catch errors for registering on "start" and "stop" events for cubism. Still waiting
+        for my pull request to be applied.
+      </action>
+      <action dev="roland" type="fix" issue="96" date="2013-04-11">
+        J4pReadRequest now fetches all attributes if no attribute is given.
+      </action>
+      <action dev="jpamador" type="add" date="2013-04-09">
+        Added converters for java.net.URL
+      </action>
+    </release>
+    <release version="1.1.1" description="Release 1.1.1" date="2013-03-26">
+      <action dev="roland" type="fix" issue="71">
+        "Expires" header contains now a valid date value, one hour less the current time.
+        This follows almost the recommendation of RFC-2616.
+      </action>
+      <action dev="roland" type="fix" issue="84" date="2013-03-17">
+        Fixed assembly of distribution packages where the JMX and Spring packages were
+        missing.
+      </action>
+      <action dev="roland" type="add" issue="77" date="2013-03-15">
+        JS: j4p.register() can now use a 'onlyIfModified' attribute to call the callback only
+        if some changes has happened on the server side. This works currently
+        only for list requests.
+      </action>
+      <action dev="roland" type="add" issue="78" date="2013-03-15">
+        Added the possibility to use the attributes "callback" and "config" in j4p.register()
+        in the JS library.
+      </action>
+      <action dev="marosmars" type="add" issue="85" date="2013-03-14">
+        Added property errorValue to J4pRemoteException which contains a serialized
+        version of the exception if the 'serializeException' processing parameter
+        is switched on.
+      </action>
+      <action dev="benson-basis" type="add" issue="86" date="2013-03-13">
+        If no host is given, the JVM agent will now bind to localhost. If a
+        host of "0.0.0.0" or "*" is given, then the agent will listen on
+        all interfaces.
+      </action>
+      <action dev="benson-basis" type="add" issue="82" date="2013-03-13">
+        If a port of 0 is given, then the JVM agent will select an arbitrary
+        free port and prints out the selected port.
+      </action>
+      <action dev="roland" type="add" issue="77" date="2013-03-07">
+        Added support for "ifModifiedSince" processing parameter.
+      </action>
+      <action dev="roland" type="fix" issue="83" date="2013-03-06">
+        Fixed wrong key order in path when diving into tabular data values.
+      </action>
+      <action dev="roland" type="fix" issue="76" date="2013-03-01">
+        Check whether the Jolokia MBeanServerHolder is registered in advance instead of relying on
+        an InstanceNotFoundException
+      </action>
+      <action dev="roland" type="add" issue="79" date="2013-03-01">
+        Added BigDecimal and BigInteger converters for input parameters
+      </action>
+    </release>
+    <release version="1.1.0" description="Release 1.1.0" date="2013-02-28">
+      <action dev="mjr5749" type="fix" date="2013-02-22" issue="67">
+        Fix a bug HistoryEntry.trim() when the list of values is empty and max duration is > 0
+      </action>
+      <action dev="roland" type="add" date="2013-02-21">
+        Added enums for serialization/deserialization. It's really surprising how long
+        this missing feature slipped without anybody missing it ;-)
+      </action>
+      <action dev="roland" type="fix" date="2013-02-20" issue="66">
+        Added additional query parameters (serializeException, canonicalNaming and includeStackTrace)
+        to the set of allowed query parameters for the Java client lib.
+      </action>
+      <action dev="roland" type="fix" date="2013-02-12" issue="64">
+        Fixed URI encoding for GET requests in the JavaScript client library.
+      </action>
+      <action dev="roland" type="fix" date="2013-02-11">
+        Added safety net for serialization, so that OutputStreams and Writers are never
+        obtained from get-methods if they declare a subclass as return value. It happens e.g. for
+        Jetty 8.1 that FileResource.getOutputStream() opens a new FileOutputStream nuking the
+        existing data. Nice side effect ;-)
+      </action>
+      <action dev="roland" type="fix" date="2013-02-07" issue="59">
+        Added new global and process configuration options "includeStackTrace" (true,false,runtime)
+        and "serializeException" (true, false) which can be used to tune the
+        error responses.
+      </action>
+      <action dev="roland" type="fix" date="2013-02-07" issue="59">
+        "canonicalNaming" option can be as global agent configuration, too.
+      </action>
+      <action dev="roland" type="fix" date="2013-02-07" issue="63">
+        Fixed Glassfish detector which failed to boot AMX in certain circumstances.
+      </action>
+      <action dev="roland" type="add" date="2013-01-27">
+        Added support for JSON-MBean. A dedicated @JsonMBean annotation can be used
+        to export complex arguments/attributes/return values as JSON String to the Platform
+        MBeanServer. Jolokia now offers an own MBeanServer as well for registering MBeans which
+        won't show up in any other (exported) MBeanServer (except for the delegation of @JsonMBeans
+        which are delegated and translated).
+      </action>
+      <action dev="roland" type="fix" date="2013-01-13">
+        Fixed issues with GET requests and MBean ObjectNames which end with a "/".
+        Added to integration tests to deal with these issues.
+      </action>
+      <action dev="twhite" type="fix" date="2013-01-04">
+        Fixed timestamp in the Java client library's response.
+      </action>
+      <action dev="roland" type="add" date="2012-12-30">
+        New module "jolokia-spring" with Spring integration for the
+        JVM agent has been added. It contains an own Spring
+        configuration syntax and provides also a plugin for automatic
+        startup the agent with default values by only declaring a
+        dependency (works for containers which automatically lookup
+        META-INF/spring/*.xml). Kudos to James Strachan for the
+        initial idea.
+      </action>
+    </release>
     <release version="1.0.6" description="Release 1.0.6" date="2012-11-26">
       <action dev="roland" type="fix" date="2012-08-14">
         Jolokia's Javascript poller fixes an register/unregister issue, where the returned
@@ -137,7 +516,7 @@
       </action>
     </release>
     <release version="1.0.1" description="Release 1.0.1" date="2011-10-31">
-      <action dev="senthilnest" type="fix" date="2011-10-29" issue="GIT-37">
+      <action dev="senthilnest" type="fix" date="2011-10-29" issue="37">
         Daemonized threads created by the thread pool for the JVM agent.
       </action>
       <action dev="roland" type="add" date="2011-10-18">
@@ -176,7 +555,7 @@
         Added processing options for the Java client
       </action>
       <action dev="roland" type="add" date="2011-9-22">
-        Changed escaping scheme for GET URLs and pathes so that a
+        Changed escaping scheme for GET URLs and paths so that a
         slash (/) can be escaped with an exclamation mark (!): / -->
         !/
       </action>
@@ -229,11 +608,11 @@
       </action>
       <action dev="roland" type="update" date="2011-04-14">
         Reworked "list" handling. It's now much faster when used with
-        pathes since it doesn't slurp in the whole meta and truncate
+        paths since it doesn't slurp in the whole meta and truncate
         it afterwards but does the right thing directly to only fetch
         the required information. The list handler respect now a
         'maxDepth' request option for truncating the data from top
-        down. 'maxDepth' works with pathes, too. Comprehensive unit
+        down. 'maxDepth' works with paths, too. Comprehensive unit
         tests has been added as well.
       </action>
       <action dev="roland" type="add" date="2011-04-04">
@@ -301,7 +680,7 @@
         as it was before.
       </action>
     </release>
-    <release version="0.83" description="Release 0.83" date="2001-02-19">
+    <release version="0.83" description="Release 0.83" date="2011-02-19">
       <action dev="roland" type="update" date="2011-02-15">
         Reference Manual updated with sections about the OSGi agent
         and the new Roo addon.
@@ -373,7 +752,7 @@
         to "jolokia:type=Config" for backwards compatibility with jmx4perl
         clients &lt; 0.80
       </action>
-      <action dev="roland" type="fix" date="2010-11-27" issue="GIT-14">
+      <action dev="roland" type="fix" date="2010-11-27" issue="14">
         Change HttpClient to a thread safe connection manager by default,
         extended J4pClient construction with a builder pattern
       </action>

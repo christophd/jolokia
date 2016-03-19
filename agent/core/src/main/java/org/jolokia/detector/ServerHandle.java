@@ -1,11 +1,13 @@
+package org.jolokia.detector;
+
 /*
- * Copyright 2009-2010 Roland Huss
+ * Copyright 2009-2013 Roland Huss
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *     http://www.apache.org/licenses/LICENSE-2.0
+ *       http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,19 +16,18 @@
  * limitations under the License.
  */
 
-package org.jolokia.detector;
-
-import java.net.URL;
 import java.util.Map;
-import java.util.Set;
 
 import javax.management.*;
 
+import org.jolokia.backend.executor.MBeanServerExecutor;
+import org.jolokia.config.ConfigKey;
+import org.jolokia.config.Configuration;
 import org.jolokia.request.JmxRequest;
-import org.jolokia.util.ConfigKey;
 import org.jolokia.util.LogHandler;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 /**
  * Information about the the server product the agent is running in.
@@ -42,9 +43,6 @@ public class ServerHandle {
     // version number
     private String version;
 
-    // the aent URL under which this server can be found
-    private URL agentUrl;
-
     // extra information
     private Map<String,String> extraInfo;
 
@@ -57,13 +55,11 @@ public class ServerHandle {
      * @param vendor product vendor (like RedHat or Oracle)
      * @param product name of the product
      * @param version version
-     * @param agentUrl the URL under which the agent is reachable (or null if not detectable)
      * @param extraInfo free form extra information
      */
-    public ServerHandle(String vendor, String product, String version, URL agentUrl, Map<String, String> extraInfo) {
+    public ServerHandle(String vendor, String product, String version, Map<String, String> extraInfo) {
         this.product = product;
         this.version = version;
-        this.agentUrl = agentUrl;
         this.extraInfo = extraInfo;
         this.vendor = vendor;
     }
@@ -93,25 +89,16 @@ public class ServerHandle {
     }
 
     /**
-     * URL under which the agent can be reached. Note, that this information
-     * is hard to detect, especially when the server is hidden behind some reverse
-     * proxy. Hence the result is more a heuristic.
-     *
-     * @return agent url
-     */
-    public URL getAgentUrl() {
-        return agentUrl;
-    }
-
-    /**
      * Get extra information specific to a server. A subclass can overwrite this in order
      * to provide dynamice information on the server which gets calculated afresh
      * on each invokation.
      *
-     * @param pServers MBeanServers to query
+     *
+     *
+     * @param pServerManager MBeanServers to query
      * @return a map of extra info or <code>null</code> if no extra information is given.
      */
-    public Map<String,String> getExtraInfo(Set<? extends MBeanServerConnection> pServers) {
+    public Map<String,String> getExtraInfo(MBeanServerExecutor pServerManager) {
         return extraInfo;
     }
 
@@ -119,10 +106,10 @@ public class ServerHandle {
      * Hook for performing certain workarounds/pre processing just before
      * a request gets dispatched
      *
-     * @param pMBeanServers the detected MBeanServers
+     * @param pMBeanServerExecutor the detected MBeanServers
      * @param pJmxReq the request to dispatch
      */
-    public void preDispatch(Set<MBeanServer> pMBeanServers, JmxRequest pJmxReq) {
+    public void preDispatch(MBeanServerExecutor pMBeanServerExecutor, JmxRequest pJmxReq) {
         // Do nothing
     }
 
@@ -132,11 +119,11 @@ public class ServerHandle {
      *
      * The default is a no-op.
      *
-     * @param pServers
+     * @param pServerManager
      * @param pConfig agent configuration
      * @param pLoghandler logger to use for logging any error.
      */
-    public void postDetect(Set<? extends MBeanServerConnection> pServers, Map<ConfigKey, String> pConfig, LogHandler pLoghandler) {
+    public void postDetect(MBeanServerExecutor pServerManager, Configuration pConfig, LogHandler pLoghandler) {
         // Do nothing
     }
 
@@ -168,16 +155,17 @@ public class ServerHandle {
     /**
      * Return this info as an JSONObject
      *
-     * @param pServers servers, for which dynamic part might be queried
+     *
+     *
+     * @param pServerManager servers, for which dynamic part might be queried
      * @return this object in JSON representation
      */
-    public JSONObject toJSONObject(Set<MBeanServerConnection> pServers) {
+    public JSONObject toJSONObject(MBeanServerExecutor pServerManager) {
         JSONObject ret = new JSONObject();
         addNullSafe(ret, "vendor", vendor);
         addNullSafe(ret, "product", product);
         addNullSafe(ret, "version", version);
-        addNullSafe(ret, "agent-url", agentUrl != null ? agentUrl.toExternalForm() : null);
-        Map<String,String> extra = getExtraInfo(pServers);
+        Map<String,String> extra = getExtraInfo(pServerManager);
         if (extra != null) {
             JSONObject jsonExtra = new JSONObject();
             for (Map.Entry<String,String> entry : extra.entrySet()) {
@@ -205,19 +193,21 @@ public class ServerHandle {
      *    }
      * </pre>
      *
+     *
      * @param pConfig the agent configuration
      * @param pLogHandler a log handler for putting out error messages
      * @return the detector specific configuration
      */
-    protected JSONObject getDetectorOptions(Map<ConfigKey, String> pConfig, LogHandler pLogHandler) {
-        String optionString = pConfig.get(ConfigKey.DETECTOR_OPTIONS);
-        if (optionString != null) {
-            try {
-                JSONObject opts = (JSONObject) new JSONParser().parse(optionString);
-                return (JSONObject) opts.get(getProduct());
-            } catch (Exception e) {
-                pLogHandler.error("Could not parse options '" + optionString + "' as JSON object: " + e,e);
+    protected JSONObject getDetectorOptions(Configuration pConfig, LogHandler pLogHandler) {
+        String options = pConfig.get(ConfigKey.DETECTOR_OPTIONS);
+        try {
+            if (options != null) {
+                    JSONObject opts = (JSONObject) new JSONParser().parse(options);
+                    return (JSONObject) opts.get(getProduct());
             }
+            return null;
+        } catch (ParseException e) {
+            pLogHandler.error("Could not parse detector options '" + options + "' as JSON object: " + e,e);
         }
         return null;
     }

@@ -21,6 +21,7 @@ import java.net.URISyntaxException;
 import java.util.*;
 import java.util.regex.*;
 
+import org.jolokia.config.ConfigKey;
 import org.jolokia.util.EscapeUtil;
 
 /**
@@ -47,9 +48,10 @@ public final class OptionsAndArgs {
             "keystore", "keystorePassword", "useSslClientAuthentication!",
             "secureSocketProtocol", "keyStoreType", "keyManagerAlgorithm", "trustManagerAlgorithm",
             "caCert", "serverCert", "serverKey", "serverKeyAlgorithm", "clientPrincipal", "extractClientCheck",
+            "sslProtocol", "sslCipherSuite",
             // Jolokia options:
             "historyMaxEntries", "debug!", "debugMaxEntries",
-            "dispatcherClasses", "maxDepth", "maxCollectionSize",
+            "logHandlerClass", "dispatcherClasses", "maxDepth", "maxCollectionSize",
             "maxObjects", "restrictorClass", "policyLocation", "mbeanQualifier",
             "canonicalNaming", "includeStackTrace", "serializeException",
             "discoveryEnabled", "discoveryAgentUrl", "agentId", "agentDescription",
@@ -57,7 +59,7 @@ public final class OptionsAndArgs {
             "config", "help!"));
 
     private static final Set<String> LIST_OPTIONS = new HashSet<String>(Arrays.asList(
-            "clientPrincipal"));
+            "clientPrincipal", "sslProtocol", "sslCipherSuite"));
 
     static {
         String shortOptsDef[] = {
@@ -201,6 +203,14 @@ public final class OptionsAndArgs {
      */
     public boolean isQuiet() {
         return quiet;
+    }
+
+    /**
+     * Get the configured port
+     */
+    public String getPort() {
+        String port = options.get("port");
+        return port != null ? port : "8778";
     }
 
     /**

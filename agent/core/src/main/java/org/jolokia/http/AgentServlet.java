@@ -18,6 +18,8 @@ import org.jolokia.discovery.DiscoveryMulticastResponder;
 import org.jolokia.restrictor.*;
 import org.jolokia.util.*;
 import org.json.simple.JSONAware;
+import org.json.simple.JSONStreamAware;
+
 
 /*
  * Copyright 2009-2013 Roland Huss
@@ -45,7 +47,7 @@ import org.json.simple.JSONAware;
  * request. See the <a href="http://www.jolokia.org/reference/index.html">reference documentation</a>
  * for a detailed description of this servlet's features.
  * </p>
- * 
+ *
  * @author roland@jolokia.org
  * @since Apr 18, 2009
  */
@@ -67,7 +69,7 @@ public class AgentServlet extends HttpServlet {
 
     // Restrictor to use as given in the constructor
     private Restrictor restrictor;
-    
+
     // Mime type used for returning the answer
     private String configMimeType;
 
@@ -76,6 +78,9 @@ public class AgentServlet extends HttpServlet {
 
     // whether to allow reverse DNS lookup for checking the remote host
     private boolean allowDnsReverseLookup;
+
+    // wheter to allow streaming mode for response
+    private boolean streamingEnabled;
 
     /**
      * No argument constructor, used e.g. by an servlet
@@ -106,7 +111,7 @@ public class AgentServlet extends HttpServlet {
 
     /**
      * Initialize the backend systems, the log handler and the restrictor. A subclass can tune
-     * this step by overriding {@link RestrictorFactory#createRestrictor(Configuration,LogHandler)} and {@link #createLogHandler(ServletConfig, boolean)}
+     * this step by overriding {@link #createRestrictor(Configuration)}} and {@link #createLogHandler(ServletConfig, boolean)}
      *
      * @param pServletConfig servlet configuration
      */
@@ -127,7 +132,7 @@ public class AgentServlet extends HttpServlet {
         httpPostHandler = newPostHttpRequestHandler();
 
         if (restrictor == null) {
-            restrictor = RestrictorFactory.createRestrictor(config,logHandler);
+            restrictor = createRestrictor(config);
         } else {
             logHandler.info("Using custom access restriction provided by " + restrictor);
         }
@@ -135,8 +140,19 @@ public class AgentServlet extends HttpServlet {
         backendManager = new BackendManager(config,logHandler, restrictor);
         requestHandler = new HttpRequestHandler(config,backendManager,logHandler);
         allowDnsReverseLookup = config.getAsBoolean(ConfigKey.ALLOW_DNS_REVERSE_LOOKUP);
+        streamingEnabled = config.getAsBoolean(ConfigKey.STREAMING);
 
         initDiscoveryMulticast(config);
+    }
+
+    /**
+     * Hook for creating an own restrictor
+     *
+     * @param config configuration as given to the servlet
+     * @return return restrictor or null if no restrictor is needed.
+     */
+    protected Restrictor createRestrictor(Configuration config) {
+        return RestrictorFactory.createRestrictor(config, logHandler);
     }
 
     private void initDiscoveryMulticast(Configuration pConfig) {
@@ -265,16 +281,11 @@ public class AgentServlet extends HttpServlet {
         } finally {
             setCorsHeader(pReq, pResp);
 
-            String callback = pReq.getParameter(ConfigKey.CALLBACK.getKeyValue());
-            String answer = json != null ?
-                    json.toJSONString() :
-                    requestHandler.handleThrowable(new Exception("Internal error while handling an exception")).toJSONString();
-            if (callback != null) {
-                // Send a JSONP response
-                sendResponse(pResp, "text/javascript", callback + "(" + answer + ");");
-            } else {
-                sendResponse(pResp, getMimeType(pReq),answer);
+            if (json == null) {
+                json = requestHandler.handleThrowable(new Exception("Internal error while handling an exception"));
             }
+
+            sendResponse(pResp, pReq, json);
         }
     }
 
@@ -378,6 +389,14 @@ public class AgentServlet extends HttpServlet {
         return configMimeType;
     }
 
+    private boolean isStreamingEnabled(HttpServletRequest pReq) {
+        String streamingFromReq = pReq.getParameter(ConfigKey.STREAMING.getKeyValue());
+        if (streamingFromReq != null) {
+            return Boolean.parseBoolean(streamingFromReq);
+        }
+        return streamingEnabled;
+    }
+
     private interface ServletRequestHandler {
         /**
          * Handle a request and return the answer as a JSON structure
@@ -402,7 +421,7 @@ public class AgentServlet extends HttpServlet {
              }
         };
     }
-    
+
     // factory method for GET request handler
     private ServletRequestHandler newGetHttpRequestHandler() {
         return new ServletRequestHandler() {
@@ -449,12 +468,63 @@ public class AgentServlet extends HttpServlet {
         return config;
     }
 
-    private void sendResponse(HttpServletResponse pResp, String pContentType, String pJsonTxt) throws IOException {
-        setContentType(pResp, pContentType);
-        pResp.setStatus(200);
+    private void sendResponse(HttpServletResponse pResp, HttpServletRequest pReq, JSONAware pJson) throws IOException {
+        String callback = pReq.getParameter(ConfigKey.CALLBACK.getKeyValue());
+        setContentType(pResp, callback != null ? "text/javascript" : getMimeType(pReq));
+
+        pResp.setStatus(HttpServletResponse.SC_OK);
         setNoCacheHeaders(pResp);
-        PrintWriter writer = pResp.getWriter();
-        writer.write(pJsonTxt);
+        if (pJson == null) {
+            pResp.setContentLength(-1);
+        } else {
+            if (isStreamingEnabled(pReq)) {
+                sendStreamingResponse(pResp, callback, (JSONStreamAware) pJson);
+            } else {
+                // Fallback, send as one object
+                // TODO: Remove for 2.0 where should support only streaming
+                sendAllJSON(pResp, callback, pJson);
+            }
+        }
+    }
+
+    private void sendStreamingResponse(HttpServletResponse pResp, String callback, JSONStreamAware pJson) throws IOException {
+        ChunkedWriter writer = null;
+        try {
+            writer = new ChunkedWriter(pResp.getOutputStream(), "UTF-8");
+            if (callback == null) {
+                pJson.writeJSONString(writer);
+            } else {
+                writer.write(callback);
+                writer.write("(");
+                pJson.writeJSONString(writer);
+                writer.write(");");
+            }
+        } finally {
+            if (writer != null) {
+                // Always close in order to finish the request.
+                // Otherwise the thread blocks.
+                writer.flush();
+                writer.close();
+            }
+        }
+    }
+
+    private void sendAllJSON(HttpServletResponse pResp, String callback, JSONAware pJson) throws IOException {
+        OutputStream out = null;
+        try {
+            String json = pJson.toJSONString();
+            String content = callback == null ? json : callback + "(" + json + ");";
+            byte[] response = content.getBytes("UTF8");
+            pResp.setContentLength(response.length);
+            out = pResp.getOutputStream();
+            out.write(response);
+        } finally {
+            if (out != null) {
+                // Always close in order to finish the request.
+                // Otherwise the thread blocks.
+                out.close();
+            }
+        }
     }
 
     private void setNoCacheHeaders(HttpServletResponse pResp) {

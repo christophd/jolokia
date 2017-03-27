@@ -42,6 +42,7 @@ import org.jolokia.jvmagent.ParsedUri;
 import org.jolokia.restrictor.*;
 import org.jolokia.util.*;
 import org.json.simple.JSONAware;
+import org.json.simple.JSONStreamAware;
 
 /**
  * HttpHandler for handling a Jolokia request
@@ -102,7 +103,7 @@ public class JolokiaHttpHandler implements HttpHandler {
      * @param pLazy whether initialisation should be done lazy.
      */
     public void start(boolean pLazy) {
-        Restrictor restrictor = RestrictorFactory.createRestrictor(configuration,logHandler);
+        Restrictor restrictor = createRestrictor();
         backendManager = new BackendManager(configuration, logHandler, restrictor, pLazy);
         requestHandler = new HttpRequestHandler(configuration, backendManager, logHandler);
         if (listenForDiscoveryMcRequests(configuration)) {
@@ -113,6 +114,15 @@ public class JolokiaHttpHandler implements HttpHandler {
                 logHandler.error("Cannot start discovery multicast handler: " + e, e);
             }
         }
+    }
+
+    /**
+     * Hook for creating an own restrictor
+     *
+     * @return return restrictor or null if no restrictor is needed.
+     */
+    protected Restrictor createRestrictor() {
+        return RestrictorFactory.createRestrictor(configuration, logHandler);
     }
 
     private boolean listenForDiscoveryMcRequests(Configuration pConfig) {
@@ -160,7 +170,7 @@ public class JolokiaHttpHandler implements HttpHandler {
     public void handle(final HttpExchange pHttpExchange) throws IOException {
         try {
             checkAuthentication(pHttpExchange);
-            
+
             Subject subject = (Subject) pHttpExchange.getAttribute(ConfigKey.JAAS_SUBJECT_REQUEST_ATTRIBUTE);
             if (subject != null)  {
                 doHandleAs(subject, pHttpExchange);
@@ -317,6 +327,49 @@ public class JolokiaHttpHandler implements HttpHandler {
     }
 
     private void sendResponse(HttpExchange pExchange, ParsedUri pParsedUri, JSONAware pJson) throws IOException {
+        boolean streaming = configuration.getAsBoolean(ConfigKey.STREAMING);
+        if (streaming) {
+            JSONStreamAware jsonStream = (JSONStreamAware)pJson;
+            sendStreamingResponse(pExchange, pParsedUri, jsonStream);
+        } else {
+            // Fallback, send as one object
+            // TODO: Remove for 2.0
+            sendAllJSON(pExchange, pParsedUri, pJson);
+        }
+    }
+
+    private void sendStreamingResponse(HttpExchange pExchange, ParsedUri pParsedUri, JSONStreamAware pJson) throws IOException {
+        ChunkedWriter writer = null;
+        try {
+            Headers headers = pExchange.getResponseHeaders();
+            if (pJson != null) {
+                headers.set("Content-Type", getMimeType(pParsedUri) + "; charset=utf-8");
+                String callback = pParsedUri.getParameter(ConfigKey.CALLBACK.getKeyValue());
+                pExchange.sendResponseHeaders(200, 0);
+                writer = new ChunkedWriter(pExchange.getResponseBody(), "UTF-8");
+                if (callback == null) {
+                    pJson.writeJSONString(writer);
+                } else {
+                    writer.write(callback);
+                    writer.write("(");
+                    pJson.writeJSONString(writer);
+                    writer.write(");");
+                }
+            } else {
+                headers.set("Content-Type", "text/plain");
+                pExchange.sendResponseHeaders(200,-1);
+            }
+        } finally {
+            if (writer != null) {
+                // Always close in order to finish the request.
+                // Otherwise the thread blocks.
+                writer.flush();
+                writer.close();
+            }
+        }
+    }
+
+    private void sendAllJSON(HttpExchange pExchange, ParsedUri pParsedUri, JSONAware pJson) throws IOException {
         OutputStream out = null;
         try {
             Headers headers = pExchange.getResponseHeaders();

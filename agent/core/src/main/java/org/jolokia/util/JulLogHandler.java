@@ -1,7 +1,7 @@
-package org.jolokia;
-
+package org.jolokia.util;
 /*
- * Copyright 2009-2013 Roland Huss
+ *
+ * Copyright 2016 Roland Huss
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,25 @@ package org.jolokia;
  * limitations under the License.
  */
 
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
- * Class holding the version of this agent and the protocol.
- *
- * @author roland
- * @since Jun 11, 2009
+ * Loghandler using java.util.logging with logger org.jolokia
  */
-public final class Version {
+public class JulLogHandler implements LogHandler {
 
-    private static final String VERSION = "1.3.5";
+    private final Logger julilogger = Logger.getLogger("org.jolokia");
 
-    // Major.Minor version of protocol
-    private static final String PROTOCOL = "7.2";
-
-    private Version() {}
-
-    public static String getAgentVersion() {
-        return VERSION;
+    public void debug(String message) {
+        julilogger.fine(message);;
     }
 
-    public static String getProtocolVersion() {
-        return PROTOCOL;
+    public void info(String message) {
+        julilogger.info(message);
+    }
+
+    public void error(String message, Throwable t) {
+        julilogger.log(Level.WARNING, message, t);
     }
 }

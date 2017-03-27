@@ -66,7 +66,7 @@
             }
 
             // Jolokia Javascript Client version
-            this.CLIENT_VERSION = "1.3.3";
+            this.CLIENT_VERSION = "1.3.5";
 
             // Registered requests for fetching periodically
             var jobs = [];
@@ -617,7 +617,6 @@
             if (result.path) {
                 url += (result.path[0] == '/' ? "" : "/") + result.path;
             }
-            console.log(url);
             return url;
         }
 

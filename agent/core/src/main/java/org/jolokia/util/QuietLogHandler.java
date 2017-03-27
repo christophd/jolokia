@@ -1,7 +1,7 @@
-package org.jolokia;
-
+package org.jolokia.util;
 /*
- * Copyright 2009-2013 Roland Huss
+ *
+ * Copyright 2016 Roland Huss
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,27 +16,16 @@ package org.jolokia;
  * limitations under the License.
  */
 
-
 /**
- * Class holding the version of this agent and the protocol.
- *
- * @author roland
- * @since Jun 11, 2009
+ * Loghandler which doesn not output anything
  */
-public final class Version {
+public class QuietLogHandler implements LogHandler {
+       /** {@inheritDoc} */
+    public void debug(String message) { }
 
-    private static final String VERSION = "1.3.5";
+    /** {@inheritDoc} */
+    public void info(String message) { }
 
-    // Major.Minor version of protocol
-    private static final String PROTOCOL = "7.2";
-
-    private Version() {}
-
-    public static String getAgentVersion() {
-        return VERSION;
-    }
-
-    public static String getProtocolVersion() {
-        return PROTOCOL;
-    }
+    /** {@inheritDoc} */
+    public void error(String message, Throwable t) { }
 }
